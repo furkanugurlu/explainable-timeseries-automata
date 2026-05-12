@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict, Counter
 from typing import List, Dict, Tuple
+from src.utils.distance import find_closest_pattern
 
 class ProbabilisticAutomata:
     """
@@ -56,17 +57,33 @@ class ProbabilisticAutomata:
             print(f"Dynamic Anomaly Threshold established at 5th percentile: {self.anomaly_threshold:.4e}")
 
     def get_transition_prob(self, from_state: str, to_state: str) -> float:
-        """Returns transition probability. Applies smoothing if states are known but pair is unseen."""
-        # 1. Direct lookup
-        if from_state in self.probabilities and to_state in self.probabilities[from_state]:
-            return self.probabilities[from_state][to_state]
+        """
+        Returns transition probability.
+        If states are unseen, uses Levenshtein distance to map to closest known state 
+        to allow processing continuity, then applies a penalty/smoothing.
+        """
+        mapped_from = from_state
+        mapped_to = to_state
         
-        # 2. State exists but transition is novel (Smoothing applied)
-        if from_state in self.states:
-            return self.epsilon
+        # 1. Unseen State Remediation via Levenshtein Distance
+        if from_state not in self.states and self.states:
+            mapped_from = find_closest_pattern(from_state, list(self.states))
+            print(f"[!] Unseen State mapped: '{from_state}' -> '{mapped_from}'")
             
-        # 3. State itself is unseen (Highest severity anomaly marker)
-        return self.epsilon * 0.1
+        if to_state not in self.states and self.states:
+            mapped_to = find_closest_pattern(to_state, list(self.states))
+            print(f"[!] Unseen State mapped: '{to_state}' -> '{mapped_to}'")
+            
+        # 2. Look up in mapped probability table
+        if mapped_from in self.probabilities and mapped_to in self.probabilities[mapped_from]:
+            prob = self.probabilities[mapped_from][mapped_to]
+            # Apply penalty if mapping occurred to signal suspicion
+            if mapped_from != from_state or mapped_to != to_state:
+                return prob * 0.5 # Scaling down because it's substituted
+            return prob
+        
+        # 3. Transition remains unseen even after remediation (Smoothing applied)
+        return self.epsilon
 
     def calculate_sequence_probabilities(self, patterns: List[str], window_len: int = 5) -> List[float]:
         """
