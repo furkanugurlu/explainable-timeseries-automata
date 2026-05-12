@@ -1,0 +1,35 @@
+# Configuration file for Explainable Time Series Automata Anomaly Detection
+
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  datasets:
+    skab:
+      path: "data/raw/skab"
+      file_pattern: "*.csv"
+    batadal:
+      path: "data/raw/batadal"
+      file_pattern: "*.csv"
+
+training:
+  epochs: 50
+  batch_size: 32
+  patience: 5
+  seeds:
+    - 42
+    - 123
+    - 2026
+    - 7
+    - 999
+
+automata:
+  parameter_variations:
+    window_sizes: [3, 4, 5, 6]
+    alphabet_sizes: [3, 4, 5, 6]
+  defaults:
+    window_size: 4
+    alphabet_size: 3
+
+logging:
+  level: "INFO"
+  log_dir: "logs"
