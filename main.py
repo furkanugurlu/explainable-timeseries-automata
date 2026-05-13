@@ -3,6 +3,7 @@ import random
 import numpy as np
 import pandas as pd
 import torch
+import time
 from typing import Dict, Any, List
 from pathlib import Path
 from sklearn.metrics import f1_score, accuracy_score
@@ -11,7 +12,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from src.utils.config_loader import load_config
 from src.data.data_loader_skab import SKABDataLoader
 from src.data.data_loader_batadal import BATADALDataLoader
-from src.models.dl_models import LSTMModel, CNN1DModel, train_evaluate_dl
+from src.models.dl_models import LSTMModel, GRUModel, CNN1DModel, train_evaluate_dl
 from src.models.automata_transform import SAXTransformer
 from src.models.automata_model import ProbabilisticAutomata
 from src.models.explainability import AutomataExplainer
@@ -33,6 +34,7 @@ def add_gaussian_noise(data: np.ndarray, scale: float = 0.1) -> np.ndarray:
 def run_automata_pipeline(X_tr, y_tr, X_te, y_te, w_size, a_size, name="Automata") -> Dict[str, Any]:
     """Runs standalone Automata logic and retrieves metrics."""
     # 1. Transform
+    t0 = time.time()
     sax = SAXTransformer(window_size=w_size, alphabet_size=a_size)
     train_sym = sax.fit_transform(X_tr)
     test_sym = sax.transform(X_te)
@@ -40,14 +42,18 @@ def run_automata_pipeline(X_tr, y_tr, X_te, y_te, w_size, a_size, name="Automata
     train_patterns = sax.extract_patterns(train_sym, pattern_length=w_size)
     test_patterns = sax.extract_patterns(test_sym, pattern_length=w_size)
     
-    # 2. Model
+    # 2. Model Fit
     model = ProbabilisticAutomata()
     model.fit(train_patterns)
     
-    # 3. Predict
+    fit_time = time.time() - t0
+    
+    # 3. Predict & Inference Time
+    t1 = time.time()
     # Align labels by accounting for pattern overlap reduction
     trimmed_y_te = y_te[len(y_te) - len(test_patterns):]
     probs, preds = model.predict_anomalies(test_patterns, window_len=5)
+    inference_time = time.time() - t1
     
     # Cut labels to match predictor windowing (which trims more)
     aligned_y = trimmed_y_te[len(trimmed_y_te) - len(preds):]
@@ -66,7 +72,9 @@ def run_automata_pipeline(X_tr, y_tr, X_te, y_te, w_size, a_size, name="Automata
         "f1": float(f1),
         "accuracy": float(acc),
         "state_count": int(num_states),
-        "density": float(density)
+        "density": float(density),
+        "train_time_sec": fit_time,
+        "inference_time_sec": inference_time
     }
 
 def main():
@@ -154,18 +162,25 @@ def main():
             for scenario_name, (X_test, y_test) in scenarios.items():
                 print(f"\n>>> Running {ds_name} | Scenario: {scenario_name} | Seed: {seed}")
                 
-                # --- RUN DEEP LEARNING (LSTM) ---
-                try:
-                    print(f"Training LSTM...")
-                    lstm_metrics = train_evaluate_dl(
-                        LSTMModel, X_tr, y_tr, X_val, y_val, X_test, y_test, config=cfg
-                    )
-                    lstm_metrics.update({
-                        "dataset": ds_name, "scenario": scenario_name, "model": "LSTM", "seed": seed
-                    })
-                    all_results.append(lstm_metrics)
-                except Exception as e:
-                    print(f"LSTM Fail: {e}")
+                # --- RUN DEEP LEARNING MODELS LOOP ---
+                dl_model_variants = [
+                    ("LSTM", LSTMModel),
+                    ("GRU", GRUModel),
+                    ("CNN1D", CNN1DModel)
+                ]
+                
+                for m_name, m_class in dl_model_variants:
+                    try:
+                        print(f"Training {m_name}...")
+                        dl_metrics = train_evaluate_dl(
+                            m_class, X_tr, y_tr, X_val, y_val, X_test, y_test, config=cfg
+                        )
+                        dl_metrics.update({
+                            "dataset": ds_name, "scenario": scenario_name, "model": m_name, "seed": seed
+                        })
+                        all_results.append(dl_metrics)
+                    except Exception as e:
+                        print(f"{m_name} Fail: {e}")
                 
                 # --- RUN AUTOMATA (Hyperparameter Search Cycle) ---
                 print(f"Beginning Automata Param Iteration...")
@@ -194,10 +209,11 @@ def main():
     df_results = pd.DataFrame(all_results)
     
     # Calculate Averages & Standard Deviations grouped by model, scenario, dataset across ALL SEEDS
-    # Grouping leaves 'seed' to dynamic collapsing
     summary = df_results.groupby(["dataset", "scenario", "model"]).agg({
         'f1': ['mean', 'std'],
-        'accuracy': ['mean', 'std']
+        'accuracy': ['mean', 'std'],
+        'train_time_sec': ['mean'],
+        'inference_time_sec': ['mean']
     }).reset_index()
     
     # Save all records for later analysis

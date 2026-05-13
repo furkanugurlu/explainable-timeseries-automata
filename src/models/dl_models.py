@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import copy
@@ -80,6 +81,27 @@ class LSTMModel(nn.Module):
         
         out, _ = self.lstm(x, (h0, c0))
         # Take last time-step output
+        out = self.fc(out[:, -1, :])
+        return out
+
+class GRUModel(nn.Module):
+    def __init__(self, input_dim: int = 1, hidden_dim: int = 64, num_layers: int = 2, dropout: float = 0.2):
+        super(GRUModel, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, dropout=dropout)
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_dim, 32),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim).to(x.device)
+        out, _ = self.gru(x, h0)
         out = self.fc(out[:, -1, :])
         return out
 
@@ -165,6 +187,8 @@ def train_evaluate_dl(
     
     print(f"Starting training for {model_class.__name__} ({epochs} epochs limit)...")
     
+    train_start_time = time.time()
+    
     for epoch in range(epochs):
         # Train cycle
         model.train()
@@ -203,12 +227,15 @@ def train_evaluate_dl(
             
     # Load best weights
     model.load_state_dict(early_stopping.best_model_wts)
-    print("Model restored to best validation loss weights.")
+    train_duration = time.time() - train_start_time
+    print(f"Model restored to best validation loss weights. Train duration: {train_duration:.2f}s")
     
     # Evaluation on Test Set
     model.eval()
     all_preds = []
     all_targets = []
+    
+    inference_start_time = time.time()
     
     with torch.no_grad():
         for inputs, targets in test_loader:
@@ -221,6 +248,8 @@ def train_evaluate_dl(
             all_preds.extend(preds.cpu().numpy())
             all_targets.extend(targets.cpu().numpy())
             
+    inference_duration = time.time() - inference_start_time
+    
     all_preds = np.array(all_preds)
     all_targets = np.array(all_targets)
     
@@ -229,7 +258,9 @@ def train_evaluate_dl(
         "accuracy": accuracy_score(all_targets, all_preds),
         "precision": precision_score(all_targets, all_preds, zero_division=0),
         "recall": recall_score(all_targets, all_preds, zero_division=0),
-        "f1": f1_score(all_targets, all_preds, zero_division=0)
+        "f1": f1_score(all_targets, all_preds, zero_division=0),
+        "train_time_sec": train_duration,
+        "inference_time_sec": inference_duration
     }
     
     print("\n--- Final Evaluation Metrics ---")
