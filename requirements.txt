@@ -6,3 +6,5 @@ torch
 matplotlib
 seaborn
 jupyter
+networkx
+scipy
