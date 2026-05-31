@@ -114,6 +114,7 @@ def plot_hyperparameter_heatmap(results_df: pd.DataFrame, metric="f1"):
     filename = SAVE_DIR / f"param_heatmap_{metric}.png"
     plt.savefig(filename)
     plt.close()
+    logger.info(f"Saved hyperparameter heatmap to {filename}")
 
 def plot_transition_heatmap(model_probabilities: Dict[str, Dict[str, float]]):
     """
@@ -147,6 +148,7 @@ def plot_transition_heatmap(model_probabilities: Dict[str, Dict[str, float]]):
     filename = SAVE_DIR / "transition_density_heatmap.png"
     plt.savefig(filename)
     plt.close()
+    logger.info(f"Saved transition heatmap to {filename}")
 
 def draw_automata_graph(model_probabilities: Dict[str, Dict[str, float]]):
     """
