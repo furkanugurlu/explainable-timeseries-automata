@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 import string
 from typing import List, Dict, Any, Tuple
 from src.utils.config_loader import load_config
+
+logger = logging.getLogger(__name__)
 
 class SAXTransformer:
     """
@@ -64,7 +67,7 @@ class SAXTransformer:
         # Find actual threshold values in the data
         self.breakpoints = np.percentile(paa_train, percentiles)
         
-        print(f"Transformer fitted. Alphabet: {self.alphabet} | Breakpoints: {self.breakpoints}")
+        logger.info(f"Transformer fitted. Alphabet: {self.alphabet} | Breakpoints: {self.breakpoints}")
         return self
 
     def to_sax(self, paa_data: np.ndarray) -> List[str]:

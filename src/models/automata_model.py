@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 from collections import defaultdict, Counter
 from typing import List, Dict, Tuple
 from src.utils.distance import find_closest_pattern
+
+logger = logging.getLogger(__name__)
 
 class ProbabilisticAutomata:
     """
@@ -20,41 +23,39 @@ class ProbabilisticAutomata:
         # Automatic threshold computed during fitting
         self.anomaly_threshold = 0.0
 
-    def fit(self, patterns: List[str]):
+    def fit(self, patterns: List[str], window_len: int = 4):
         """
         Learns transition matrix from a sequence of states (patterns).
         Consecutive elements in the list represent a sequence step.
+        window_len controls the sliding window size used to compute the training threshold.
         """
         if len(patterns) < 2:
             raise ValueError("Pattern sequence too short to build transitions.")
-            
+
         # Reset state
         self.transitions.clear()
         self.probabilities.clear()
         self.states = set(patterns)
-        
+
         # Count transitions between adjacent patterns
         # Pattern[t] -> Pattern[t+1]
         for i in range(len(patterns) - 1):
             current_state = patterns[i]
             next_state = patterns[i + 1]
             self.transitions[current_state][next_state] += 1
-            
+
         # Convert counts to frequency-based probabilities
         for from_state, to_counts in self.transitions.items():
             total_out = sum(to_counts.values())
             for to_state, count in to_counts.items():
                 self.probabilities[from_state][to_state] = count / total_out
-                
-        print(f"Automata fitted successfully. Total States: {len(self.states)}")
-        
-        # Pre-calculate self probability baseline to assist threshold setting automatically
-        # Using mean path probabilities of training sequence segments
-        train_probs = self.calculate_sequence_probabilities(patterns, window_len=5)
+
+        logger.info(f"Automata fitted. States: {len(self.states)}")
+
+        train_probs = self.calculate_sequence_probabilities(patterns, window_len=window_len)
         if train_probs:
-            # Set threshold to e.g., 5th percentile of training path probabilities (Low probability = anomaly)
             self.anomaly_threshold = np.percentile(train_probs, 5)
-            print(f"Dynamic Anomaly Threshold established at 5th percentile: {self.anomaly_threshold:.4e}")
+            logger.info(f"Anomaly threshold (5th pct): {self.anomaly_threshold:.4e}")
 
     def get_transition_prob(self, from_state: str, to_state: str) -> float:
         """
@@ -68,11 +69,11 @@ class ProbabilisticAutomata:
         # 1. Unseen State Remediation via Levenshtein Distance
         if from_state not in self.states and self.states:
             mapped_from = find_closest_pattern(from_state, list(self.states))
-            print(f"[!] Unseen State mapped: '{from_state}' -> '{mapped_from}'")
-            
+            logger.debug(f"Unseen state mapped: '{from_state}' -> '{mapped_from}'")
+
         if to_state not in self.states and self.states:
             mapped_to = find_closest_pattern(to_state, list(self.states))
-            print(f"[!] Unseen State mapped: '{to_state}' -> '{mapped_to}'")
+            logger.debug(f"Unseen state mapped: '{to_state}' -> '{mapped_to}'")
             
         # 2. Look up in mapped probability table
         if mapped_from in self.probabilities and mapped_to in self.probabilities[mapped_from]:
@@ -132,6 +133,7 @@ class ProbabilisticAutomata:
         return path_probs, labels
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     print("Testing Probabilistic Automata...")
     
     # Mock SAX pattern sequences

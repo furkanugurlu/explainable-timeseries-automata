@@ -24,3 +24,6 @@ logs/
 .vscode/
 .idea/
 .DS_Store
+
+# Project spec PDFs — must not be pushed to GitHub
+*.pdf

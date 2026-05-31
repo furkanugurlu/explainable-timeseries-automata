@@ -30,6 +30,14 @@ automata:
     window_size: 4
     alphabet_size: 3
 
+models:
+  dl: [LSTM, GRU, CNN1D]
+
+experiments:
+  noise_scale: 0.15
+  unseen_ratio: 0.3
+  cross_dataset: true
+
 logging:
   level: "INFO"
   log_dir: "logs"

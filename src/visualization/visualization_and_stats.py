@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +10,8 @@ from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve,
 from pathlib import Path
 from typing import Dict, List, Any
 
-# Ensure storage exists
+logger = logging.getLogger(__name__)
+
 SAVE_DIR = Path("results/figures")
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -17,32 +19,33 @@ def perform_wilcoxon_test(group_a: List[float], group_b: List[float], label_a: s
     """
     Computes Wilcoxon signed-rank test to determine statistical difference significance.
     Used when comparing pairs of performance metrics (e.g., across various seeds).
+    Returns dict with stat, p_value, significant keys (or None on error).
     """
-    print(f"\n=== Statistical Significance Test: {label_a} vs {label_b} ===")
-    
+    logger.info(f"Wilcoxon test: {label_a} vs {label_b}")
+
     if len(group_a) != len(group_b):
-        print("Error: Group sizes must be identical for paired test.")
-        return
-        
+        logger.error("Wilcoxon failed: group sizes must be identical for paired test.")
+        return None
+
     if len(group_a) < 2:
-        print("Notice: Not enough samples for reliable p-value.")
-        return
-        
-    # If perfect match, will throw error, so handle identical inputs
+        logger.warning("Wilcoxon: not enough samples for reliable p-value.")
+        return None
+
     if np.array_equal(group_a, group_b):
-        print("P-value: 1.0 (Identical datasets)")
-        return
+        logger.info("Wilcoxon: identical groups, p=1.0")
+        return {"stat": 0.0, "p_value": 1.0, "significant": False}
 
     try:
         stat, p = wilcoxon(group_a, group_b)
-        print(f"Statistic: {stat:.4f}")
-        print(f"P-value:   {p:.6f}")
-        if p < 0.05:
-            print("Result: STATISTICALLY SIGNIFICANT difference (p < 0.05)")
-        else:
-            print("Result: NOT statistically significant (p >= 0.05)")
+        significant = p < 0.05
+        logger.info(
+            f"Wilcoxon {label_a} vs {label_b}: stat={stat:.4f}, p={p:.6f}, "
+            f"{'SIGNIFICANT' if significant else 'not significant'}"
+        )
+        return {"stat": float(stat), "p_value": float(p), "significant": significant}
     except Exception as e:
-        print(f"Test could not compute: {e}")
+        logger.error(f"Wilcoxon test could not compute: {e}")
+        return None
 
 def plot_confusion_matrix(y_true, y_pred, title_suffix=""):
     """Plots a labeled confusion matrix heatmap."""
@@ -57,7 +60,7 @@ def plot_confusion_matrix(y_true, y_pred, title_suffix=""):
     filename = SAVE_DIR / f"conf_matrix_{title_suffix.lower().replace(' ', '_')}.png"
     plt.savefig(filename)
     plt.close()
-    print(f"Saved confusion matrix to {filename}")
+    logger.info(f"Saved confusion matrix to {filename}")
 
 def plot_roc_pr_curves(y_true, y_prob, title_suffix=""):
     """Plots both ROC and Precision-Recall side-by-side."""
@@ -95,7 +98,7 @@ def plot_hyperparameter_heatmap(results_df: pd.DataFrame, metric="f1"):
     window_size vs alphabet_size performance as a heatmap.
     """
     if 'window' not in results_df.columns or 'alphabet' not in results_df.columns:
-        print("Required dataframe columns ('window', 'alphabet') missing for hyperparam plot.")
+        logger.warning("Missing 'window' or 'alphabet' columns — skipping hyperparameter heatmap.")
         return
         
     # Pivot to grid format suitable for seaborn
@@ -119,7 +122,7 @@ def plot_transition_heatmap(model_probabilities: Dict[str, Dict[str, float]]):
     states = sorted(list(set(model_probabilities.keys()) | {to_s for to_vals in model_probabilities.values() for to_s in to_vals}))
     
     if len(states) > 30:
-        print("Notice: Automata size is extremely large, heatmap might be unreadable. Clipping to top 20 states.")
+        logger.warning("Automata state count > 30 — clipping transition heatmap to top 20 states.")
         states = states[:20]
         
     # Build matrix
@@ -179,7 +182,7 @@ def draw_automata_graph(model_probabilities: Dict[str, Dict[str, float]]):
     filename = SAVE_DIR / "automata_state_diagram.png"
     plt.savefig(filename)
     plt.close()
-    print(f"Saved graphical state diagram to {filename}")
+    logger.info(f"Saved graphical state diagram to {filename}")
 
 if __name__ == "__main__":
     # Generating mock test outputs to confirm code path integrity

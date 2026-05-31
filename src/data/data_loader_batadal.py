@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -6,6 +7,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 
 from src.utils.config_loader import load_config, get_project_root
+
+logger = logging.getLogger(__name__)
 
 class BATADALDataLoader:
     def __init__(self, config: dict = None):
@@ -41,8 +44,7 @@ class BATADALDataLoader:
         if not csv_files:
             raise FileNotFoundError(f"No CSV files found in {self.data_dir}")
             
-        # Fallback to first file but print warning
-        print(f"Warning: Could not explicitly find 'Dataset 2'. Defaulting to: {csv_files[0].name}")
+        logger.warning(f"Could not explicitly find 'Dataset 2'. Defaulting to: {csv_files[0].name}")
         return csv_files[0]
 
     def load_and_sort_data(self) -> pd.DataFrame:
@@ -50,7 +52,7 @@ class BATADALDataLoader:
         Loads the selected dataset and sorts it chronologically.
         """
         data_file = self.find_training_dataset_2()
-        print(f"Loading file: {data_file.name}")
+        logger.info(f"Loading file: {data_file.name}")
         
         # BATADAL sometimes uses comma, sometimes different separators. Strip whitespace.
         df = pd.read_csv(data_file, skipinitialspace=True)
@@ -74,7 +76,7 @@ class BATADALDataLoader:
             df = df.sort_values(by=datetime_col).reset_index(drop=True)
             self.datetime_col = datetime_col
         else:
-            print("Warning: No chronological column detected. Assuming data is already ordered.")
+            logger.warning("No chronological column detected. Assuming data is already ordered.")
             self.datetime_col = None
             
         return df
@@ -125,7 +127,7 @@ class BATADALDataLoader:
         y_val = y[train_end:val_end]
         y_test = y[val_end:]
         
-        print(f"Splitting complete -> Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+        logger.info(f"Splitting complete -> Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
         
         # 1. Normalization: MinMaxScaler
         scaler = MinMaxScaler()
@@ -143,7 +145,7 @@ class BATADALDataLoader:
         X_val_final = pca.transform(X_val_scaled)
         X_test_final = pca.transform(X_test_scaled)
         
-        print(f"Final Shape After PC1 Reduction -> Train: {X_train_final.shape}")
+        logger.info(f"Final shape after PCA reduction -> Train: {X_train_final.shape}")
         
         return X_train_final, X_val_final, X_test_final, y_train, y_val, y_test
 

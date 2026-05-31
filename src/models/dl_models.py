@@ -1,3 +1,4 @@
+import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,6 +9,9 @@ import copy
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from typing import Dict, Any, Tuple, Type
 from src.utils.config_loader import load_config
+from src.models.base_model import BaseAnomalyDetector
+
+logger = logging.getLogger(__name__)
 
 class TimeSeriesDataset(Dataset):
     """
@@ -50,7 +54,7 @@ class EarlyStopping:
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+                logger.info(f"EarlyStopping counter: {self.counter} out of {self.patience}")
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -165,7 +169,7 @@ def train_evaluate_dl(
         window_size = cfg['automata']['defaults']['window_size']
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Training using device: {device}")
+    logger.info(f"Training device: {device}")
     
     # Prepare Datasets and Loaders
     train_ds = TimeSeriesDataset(X_train, y_train, window_size)
@@ -185,7 +189,7 @@ def train_evaluate_dl(
     
     early_stopping = EarlyStopping(patience=patience, verbose=True)
     
-    print(f"Starting training for {model_class.__name__} ({epochs} epochs limit)...")
+    logger.info(f"Starting training: {model_class.__name__} (max {epochs} epochs)")
     
     train_start_time = time.time()
     
@@ -217,18 +221,16 @@ def train_evaluate_dl(
         avg_train_loss = train_loss / len(train_loader)
         avg_val_loss = val_loss / len(val_loader)
         
-        print(f"Epoch [{epoch+1}/{epochs}] Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
-        
-        # Check early stopping
+        logger.info(f"Epoch [{epoch+1}/{epochs}] train_loss={avg_train_loss:.4f} val_loss={avg_val_loss:.4f}")
+
         early_stopping(avg_val_loss, model)
         if early_stopping.early_stop:
-            print("Early stopping triggered.")
+            logger.info("Early stopping triggered.")
             break
-            
-    # Load best weights
+
     model.load_state_dict(early_stopping.best_model_wts)
     train_duration = time.time() - train_start_time
-    print(f"Model restored to best validation loss weights. Train duration: {train_duration:.2f}s")
+    logger.info(f"Training complete. Best weights restored. Duration: {train_duration:.2f}s")
     
     # Evaluation on Test Set
     model.eval()
@@ -263,11 +265,63 @@ def train_evaluate_dl(
         "inference_time_sec": inference_duration
     }
     
-    print("\n--- Final Evaluation Metrics ---")
-    for k, v in metrics.items():
-        print(f"{k.capitalize()}: {v:.4f}")
-        
+    logger.info(f"Eval metrics: {', '.join(f'{k}={v:.4f}' for k, v in metrics.items())}")
+
     return metrics
+
+
+class DLAnomalyDetector(BaseAnomalyDetector):
+    """
+    Strategy pattern adapter: wraps train_evaluate_dl() so all DL models
+    conform to the same BaseAnomalyDetector interface as AutomataPipeline.
+
+    fit() stores train/val data; get_metrics() runs the full training loop.
+    predict() is not supported standalone (DL training is inseparable from eval).
+    """
+
+    def __init__(self, model_class: Type[nn.Module], config: dict = None):
+        self.model_class = model_class
+        self.config = config or load_config()
+        self._X_train: np.ndarray = None
+        self._y_train: np.ndarray = None
+        self._X_val: np.ndarray = None
+        self._y_val: np.ndarray = None
+        self._fitted: bool = False
+
+    def fit(
+        self,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_val: np.ndarray = None,
+        y_val: np.ndarray = None,
+        **kwargs,
+    ) -> "DLAnomalyDetector":
+        self._X_train = X_train
+        self._y_train = y_train
+        self._X_val = X_val if X_val is not None else X_train
+        self._y_val = y_val if y_val is not None else y_train
+        self._fitted = True
+        return self
+
+    def predict(self, X_test: np.ndarray) -> np.ndarray:
+        raise NotImplementedError(
+            "DLAnomalyDetector does not support predict() alone. "
+            "Training and inference are inseparable — use get_metrics(X_test, y_test)."
+        )
+
+    def get_metrics(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, Any]:
+        if not self._fitted:
+            raise RuntimeError(
+                "DLAnomalyDetector.get_metrics() called before fit(). Call fit(X_train, y_train) first."
+            )
+        return train_evaluate_dl(
+            self.model_class,
+            self._X_train, self._y_train,
+            self._X_val, self._y_val,
+            X_test, y_test,
+            config=self.config,
+        )
+
 
 if __name__ == "__main__":
     # Smoke test with dummy data

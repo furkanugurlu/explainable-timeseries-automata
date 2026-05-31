@@ -1,4 +1,5 @@
 import os
+import logging
 import pandas as pd
 import numpy as np
 from glob import glob
@@ -9,6 +10,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 
 from src.utils.config_loader import load_config, get_project_root
+
+logger = logging.getLogger(__name__)
 
 class SKABDataLoader:
     def __init__(self, config: dict = None):
@@ -40,7 +43,7 @@ class SKABDataLoader:
         for subdir in self.subdirs:
             target_path = self.data_dir / subdir
             if not target_path.exists():
-                print(f"Warning: Directory not found: {target_path}")
+                logger.warning(f"Directory not found: {target_path}")
                 continue
                 
             # Find all CSV files
@@ -122,7 +125,7 @@ class SKABDataLoader:
             # Transform test scaled
             X_test_pca = pca.transform(X_test_scaled)
             
-            print(f"Fold {fold_idx + 1} processed successfully. Shape -> Train: {X_train_pca.shape}, Test: {X_test_pca.shape}")
+            logger.info(f"Fold {fold_idx + 1} processed. Train: {X_train_pca.shape}, Test: {X_test_pca.shape}")
             
             yield X_train_pca, X_test_pca, y_train, y_test
 
