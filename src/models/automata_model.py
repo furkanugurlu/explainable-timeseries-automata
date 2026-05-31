@@ -114,23 +114,32 @@ class ProbabilisticAutomata:
             
         return path_probs
 
-    def predict_anomalies(self, test_patterns: List[str], window_len: int = 5, threshold: float = None) -> Tuple[List[float], List[int]]:
+    def predict_anomalies(
+        self, test_patterns: List[str], window_len: int = 5, threshold: float = None
+    ) -> Tuple[List[float], List[int], List[bool]]:
         """
         Evaluates test sequence and detects anomalies based on Path Probability.
-        
+
         Returns:
-            tuple: (path_probabilities_list, binary_labels_list where 1 = Anomaly, 0 = Normal)
+            tuple: (
+                path_probabilities_list,
+                binary_labels_list  (1 = Anomaly, 0 = Normal),
+                unseen_flags_list   (True if window contains ≥1 pattern not seen in training)
+            )
         """
-        # Use automatic threshold if none provided
         active_threshold = threshold if threshold is not None else self.anomaly_threshold
-        
+
         path_probs = self.calculate_sequence_probabilities(test_patterns, window_len)
-        
-        # Lower probability than threshold indicates an Anomaly
-        # Mark as 1 (Anomaly) if probability is below threshold, else 0 (Normal)
         labels = [1 if p < active_threshold else 0 for p in path_probs]
-        
-        return path_probs, labels
+
+        # Mark windows that contain at least one pattern outside the training state set.
+        # These windows used Levenshtein remapping — relevant for Detection Rate / Mapping Accuracy.
+        unseen_flags = [
+            any(p not in self.states for p in test_patterns[i: i + window_len])
+            for i in range(len(test_patterns) - window_len + 1)
+        ]
+
+        return path_probs, labels, unseen_flags
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
