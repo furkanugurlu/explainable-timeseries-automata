@@ -143,27 +143,18 @@ class ProbabilisticAutomata:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    print("Testing Probabilistic Automata...")
-    
-    # Mock SAX pattern sequences
-    # Let's assume the normal cycle is a->b->c->a->b...
+    logger.info("Testing Probabilistic Automata...")
+
     train_patterns = ['ab', 'bc', 'ca', 'ab', 'bc', 'ca', 'ab', 'bc', 'ca', 'ab']
-    
-    # Create model
     automata = ProbabilisticAutomata()
-    
-    # Train
     automata.fit(train_patterns)
-    
-    # Check a normal transition
-    print(f"Prob('ab' -> 'bc'): {automata.get_transition_prob('ab', 'bc')}")
-    
-    # Test normal sequence
+
+    logger.info(f"Prob('ab' -> 'bc'): {automata.get_transition_prob('ab', 'bc')}")
+
     test_normal = ['ab', 'bc', 'ca', 'ab']
-    prob_norm, label_norm = automata.predict_anomalies(test_normal, window_len=3, threshold=1e-4)
-    print(f"Normal Seq Probs: {prob_norm} | Labels: {label_norm}")
-    
-    # Test anomalous sequence (includes an 'aa' transition which never happens in train)
+    prob_norm, label_norm, unseen_norm = automata.predict_anomalies(test_normal, window_len=3, threshold=1e-4)
+    logger.info(f"Normal Seq Probs: {prob_norm} | Labels: {label_norm} | Unseen: {unseen_norm}")
+
     test_anomaly = ['ab', 'aa', 'bc', 'ca']
-    prob_anom, label_anom = automata.predict_anomalies(test_anomaly, window_len=3, threshold=1e-4)
-    print(f"Anomalous Seq Probs: {prob_anom} | Labels: {label_anom}")
+    prob_anom, label_anom, unseen_anom = automata.predict_anomalies(test_anomaly, window_len=3, threshold=1e-4)
+    logger.info(f"Anomalous Seq Probs: {prob_anom} | Labels: {label_anom} | Unseen: {unseen_anom}")

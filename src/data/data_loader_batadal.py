@@ -111,7 +111,9 @@ class BATADALDataLoader:
         
         # Ensure all input columns are converted to numeric, force error on artifacts
         X = X.apply(pd.to_numeric, errors='coerce').fillna(0)
-        y = df[target_col].values
+        # Binarize: BATADAL uses ATT_FLAG=1 for attack, -1 or 0 for normal depending on version.
+        # Treat any positive value as anomaly (1), everything else as normal (0).
+        y = (df[target_col].fillna(0).values > 0).astype(int)
         
         # Chronological index calculation
         total_rows = len(df)
@@ -150,19 +152,20 @@ class BATADALDataLoader:
         return X_train_final, X_val_final, X_test_final, y_train, y_val, y_test
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     try:
         loader = BATADALDataLoader()
-        print("Initializing BATADAL Chronological Pipeline...")
-        
+        logger.info("Initializing BATADAL Chronological Pipeline...")
+
         results = loader.get_processed_splits()
         X_tr, X_v, X_te, y_tr, y_v, y_te = results
-        
-        print(f"\nSuccess!")
-        print(f"X Train Shape: {X_tr.shape} | Target Shape: {y_tr.shape}")
-        print(f"X Val Shape:   {X_v.shape} | Target Shape: {y_v.shape}")
-        print(f"X Test Shape:  {X_te.shape} | Target Shape: {y_te.shape}")
+
+        logger.info("Success!")
+        logger.info(f"X Train Shape: {X_tr.shape} | Target Shape: {y_tr.shape}")
+        logger.info(f"X Val Shape:   {X_v.shape} | Target Shape: {y_v.shape}")
+        logger.info(f"X Test Shape:  {X_te.shape} | Target Shape: {y_te.shape}")
 
     except FileNotFoundError as e:
-        print("\n[!] Note for user: Pipeline logic built perfectly.")
-        print(f"[!] Status: {e}")
-        print("[!] Instructions: Put BATADAL Training Dataset 2 inside 'data/raw/batadal/' folder.")
+        logger.warning("[!] Pipeline logic built. Data not found.")
+        logger.warning(f"[!] Status: {e}")
+        logger.warning("[!] Instructions: Put BATADAL Training Dataset 2 inside 'data/raw/batadal/'.")

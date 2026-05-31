@@ -126,6 +126,76 @@ class TestAutomataPipeline(unittest.TestCase):
         self.assertIn('train_time_sec', metrics)
         self.assertIn('inference_time_sec', metrics)
 
+    def test_pipeline_get_metrics_returns_state_count(self):
+        """get_metrics() must return 'state_count' — number of unique automata states learned."""
+        from src.pipeline.automata_pipeline import AutomataPipeline
+        rng = np.random.RandomState(42)
+        X = rng.rand(300, 1)
+        y = rng.randint(0, 2, 300)
+        pipeline = AutomataPipeline(window_size=4, alphabet_size=3)
+        pipeline.fit(X[:200], y[:200])
+        metrics = pipeline.get_metrics(X[200:], y[200:])
+        self.assertIn('state_count', metrics)
+        self.assertIsInstance(metrics['state_count'], int)
+        self.assertGreater(metrics['state_count'], 0)
+
+    def test_pipeline_get_metrics_returns_density(self):
+        """get_metrics() must return 'density' — transition graph density in [0, 1]."""
+        from src.pipeline.automata_pipeline import AutomataPipeline
+        rng = np.random.RandomState(42)
+        X = rng.rand(300, 1)
+        y = rng.randint(0, 2, 300)
+        pipeline = AutomataPipeline(window_size=4, alphabet_size=3)
+        pipeline.fit(X[:200], y[:200])
+        metrics = pipeline.get_metrics(X[200:], y[200:])
+        self.assertIn('density', metrics)
+        d = metrics['density']
+        self.assertIsInstance(d, float)
+        self.assertGreaterEqual(d, 0.0)
+        self.assertLessEqual(d, 1.0)
+
+
+class TestAutomataPipelinePathProbs(unittest.TestCase):
+    """AutomataPipeline must expose raw path probabilities for ROC/PR curves (Day 4)."""
+
+    def _fitted_pipeline(self):
+        from src.pipeline.automata_pipeline import AutomataPipeline
+        rng = np.random.RandomState(7)
+        X_tr = rng.rand(300, 1)
+        y_tr = rng.randint(0, 2, 300)
+        p = AutomataPipeline(window_size=4, alphabet_size=3)
+        p.fit(X_tr, y_tr)
+        return p, rng
+
+    def test_pipeline_has_get_path_probabilities_method(self):
+        """AutomataPipeline must expose get_path_probabilities() for ROC/PR curves."""
+        from src.pipeline.automata_pipeline import AutomataPipeline
+        p = AutomataPipeline(window_size=4, alphabet_size=3)
+        self.assertTrue(hasattr(p, 'get_path_probabilities'),
+            "AutomataPipeline must expose get_path_probabilities() for ROC/PR scoring")
+
+    def test_get_path_probabilities_returns_list_of_floats(self):
+        """get_path_probabilities() must return list of floats after predict()."""
+        pipeline, rng = self._fitted_pipeline()
+        X_te = rng.rand(100, 1)
+        pipeline.predict(X_te)
+        probs = pipeline.get_path_probabilities()
+        self.assertIsInstance(probs, list)
+        self.assertTrue(all(isinstance(p, float) for p in probs),
+            "All path probabilities must be float")
+
+    def test_get_path_probabilities_before_predict_raises_runtime_error(self):
+        """get_path_probabilities() before predict() must raise RuntimeError."""
+        from src.pipeline.automata_pipeline import AutomataPipeline
+        rng = np.random.RandomState(42)
+        X_tr = rng.rand(200, 1)
+        y_tr = rng.randint(0, 2, 200)
+        p = AutomataPipeline(window_size=4, alphabet_size=3)
+        p.fit(X_tr, y_tr)
+        with self.assertRaises(RuntimeError,
+                msg="get_path_probabilities() before predict() must raise RuntimeError"):
+            p.get_path_probabilities()
+
 
 class TestDLAnomalyDetector(unittest.TestCase):
 

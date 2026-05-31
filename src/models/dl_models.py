@@ -324,18 +324,18 @@ class DLAnomalyDetector(BaseAnomalyDetector):
 
 
 if __name__ == "__main__":
-    # Smoke test with dummy data
-    print("Running smoke test...")
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Running DL smoke test...")
+
     dummy_x = np.random.rand(100, 1)
     dummy_y = np.random.randint(0, 2, size=(100,))
-    
-    # Test split
+
     X_tr, y_tr = dummy_x[:60], dummy_y[:60]
     X_v, y_v = dummy_x[60:80], dummy_y[60:80]
     X_te, y_te = dummy_x[80:], dummy_y[80:]
-    
+
     try:
         res = train_evaluate_dl(LSTMModel, X_tr, y_tr, X_v, y_v, X_te, y_te, window_size=4)
-        print("\nTest pass successful.")
+        logger.info("DL smoke test passed successfully.")
     except Exception as e:
-        print(f"\nSmoke test context: Missing config causes intended fallback or fail depending on configuration. Error info: {e}")
+        logger.warning(f"Smoke test: missing config causes expected fallback. Error: {e}")

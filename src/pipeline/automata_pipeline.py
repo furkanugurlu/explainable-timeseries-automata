@@ -33,6 +33,7 @@ class AutomataPipeline(BaseAnomalyDetector):
         self._train_time: float = 0.0
         self._y_pred: Optional[np.ndarray] = None
         self._unseen_flags: Optional[List[bool]] = None
+        self._path_probs: Optional[List[float]] = None
         self._test_patterns: Optional[List[str]] = None
         self._explanations: Optional[List[Dict]] = None
         self._fitted: bool = False
@@ -55,6 +56,7 @@ class AutomataPipeline(BaseAnomalyDetector):
         self._train_time = time.time() - t0
         self._fitted = True
         self._predicted = False
+        self._path_probs = None
         logger.info(
             f"AutomataPipeline fitted (W={self.window_size}, A={self.alphabet_size}) "
             f"in {self._train_time:.3f}s — {len(self.model.states)} states"
@@ -69,10 +71,11 @@ class AutomataPipeline(BaseAnomalyDetector):
         test_sym = self.transformer.transform(X_test)
         test_patterns = self.transformer.extract_patterns(test_sym, pattern_length=self.window_size)
 
-        _, labels, unseen_flags = self.model.predict_anomalies(test_patterns, window_len=self.window_size)
+        path_probs, labels, unseen_flags = self.model.predict_anomalies(test_patterns, window_len=self.window_size)
 
         self._test_patterns = test_patterns
         self._unseen_flags = unseen_flags
+        self._path_probs = path_probs  # stored for ROC/PR curves (Day 4)
         self._y_pred = np.array(labels)
         self._explanations = None  # invalidate cached explanations on new predict
         self._predicted = True
@@ -119,6 +122,19 @@ class AutomataPipeline(BaseAnomalyDetector):
             f"mapping_accuracy={base['mapping_accuracy']:.3f}"
         )
         return base
+
+    def get_path_probabilities(self) -> List[float]:
+        """
+        Returns raw path probabilities from the last predict() call.
+        Lower probability = higher anomaly score — used as anomaly scores for ROC/PR curves.
+        Must be called after predict().
+        """
+        if not self._predicted or self._path_probs is None:
+            raise RuntimeError(
+                "AutomataPipeline.get_path_probabilities() called before predict(). "
+                "Call predict(X_test) first."
+            )
+        return self._path_probs
 
     def get_explanations(self) -> List[Dict]:
         """

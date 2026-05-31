@@ -91,6 +91,7 @@ def plot_roc_pr_curves(y_true, y_prob, title_suffix=""):
     filename = SAVE_DIR / f"curves_{title_suffix.lower().replace(' ', '_')}.png"
     plt.savefig(filename)
     plt.close()
+    logger.info(f"Saved ROC/PR curves to {filename}")
 
 def plot_hyperparameter_heatmap(results_df: pd.DataFrame, metric="f1"):
     """
@@ -185,19 +186,18 @@ def draw_automata_graph(model_probabilities: Dict[str, Dict[str, float]]):
     logger.info(f"Saved graphical state diagram to {filename}")
 
 if __name__ == "__main__":
-    # Generating mock test outputs to confirm code path integrity
-    print("Testing Visualization Package pipeline integrity...")
-    
-    # Mock transition dict
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Testing Visualization Package pipeline integrity...")
+
     mock_probs = {
         'aaa': {'aab': 0.8, 'aaa': 0.2},
         'aab': {'aba': 0.9, 'bbb': 0.1},
         'aba': {'aaa': 1.0}
     }
-    
+
     try:
         plot_transition_heatmap(mock_probs)
         draw_automata_graph(mock_probs)
-        print("Mock graph components generated successfully.")
+        logger.info("Mock graph components generated successfully.")
     except Exception as e:
-        print(f"Visualization integration test failed: {e}")
+        logger.error(f"Visualization integration test failed: {e}")

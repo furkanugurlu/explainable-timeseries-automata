@@ -137,10 +137,12 @@ class AutomataExplainer:
         return all_explanations
 
 if __name__ == "__main__":
-    # Simple standalone demo to confirm capability
+    import logging as _logging
+    _logging.basicConfig(level=_logging.INFO)
+    _log = _logging.getLogger(__name__)
+
     from src.models.automata_model import ProbabilisticAutomata
-    
-    # Setup mock automata
+
     model = ProbabilisticAutomata()
     model.states = {'abc', 'bcd', 'cda'}
     model.probabilities = {
@@ -148,15 +150,13 @@ if __name__ == "__main__":
         'bcd': {'cda': 0.9},
         'cda': {'abc': 0.7}
     }
-    # Manually set tight threshold to force anomalies
-    model.anomaly_threshold = 0.5 
-    
+    model.anomaly_threshold = 0.5
+
     explainer = AutomataExplainer(model)
-    
-    print("Generating sample explanation for sequence with one unknown transition...")
-    # 'bce' is unseen, closest will be 'bcd'
+
+    _log.info("Generating sample explanation for sequence with one unknown transition...")
     test_seq = ['abc', 'bce', 'cda']
-    
+
     explanation_json = explainer.explain_anomalies(test_seq, window_len=3)
-    print("\n--- EXPLANATION OUTPUT ---")
-    print(explanation_json)
+    _log.info("--- EXPLANATION OUTPUT ---")
+    _log.info(explanation_json)

@@ -130,19 +130,17 @@ class SKABDataLoader:
             yield X_train_pca, X_test_pca, y_train, y_test
 
 if __name__ == "__main__":
-    # Verification logic to demonstrate capabilities
+    logging.basicConfig(level=logging.INFO)
     try:
         loader = SKABDataLoader()
-        print("Initializing testing pipeline...")
-        
-        # This will fail if the data folder is empty, which is expected until data is added.
-        # But it allows the user to verify the pipeline.
+        logger.info("Initializing SKAB testing pipeline...")
+
         fold_gen = loader.get_folds(n_splits=5)
         for i, (X_tr, X_te, y_tr, y_te) in enumerate(fold_gen):
-            print(f"Fold {i+1} ready. Train size: {X_tr.shape}, Test size: {X_te.shape}")
-            break # Just show one to confirm logic
-            
+            logger.info(f"Fold {i+1} ready. Train size: {X_tr.shape}, Test size: {X_te.shape}")
+            break
+
     except FileNotFoundError as e:
-        print("\n[!] Note for user: Pipeline code created successfully.")
-        print(f"[!] Status: {e}")
-        print("[!] Instructions: Place SKAB 'valve1' and 'valve2' folders under 'data/raw/skab/' to process files.")
+        logger.warning("[!] Pipeline code created successfully.")
+        logger.warning(f"[!] Status: {e}")
+        logger.warning("[!] Instructions: Place SKAB 'valve1' and 'valve2' folders under 'data/raw/skab/'.")

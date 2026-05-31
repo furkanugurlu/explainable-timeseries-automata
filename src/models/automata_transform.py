@@ -27,6 +27,7 @@ class SAXTransformer:
         
         # Placeholders for the distribution breakpoints derived ONLY from Train data
         self.breakpoints = None
+        self._fit_paa = None  # cached PAA from fit() so fit_transform() avoids double computation
 
     def to_paa(self, data: np.ndarray) -> np.ndarray:
         """
@@ -56,17 +57,13 @@ class SAXTransformer:
         """
         Finds the breakpoints for the SAX transformation using ONLY the training data.
         Uses empirical quantiles from the training PAA values to satisfy the leakage rule.
+        Caches the training PAA so fit_transform() can reuse it without recomputing.
         """
-        # Convert to PAA first
-        paa_train = self.to_paa(train_data)
-        
-        # Calculate quantiles corresponding to uniform distribution bins across alphabet_size
-        # For 3 letters ('a','b','c'), we need 2 cut-points at 33.3% and 66.6%
+        self._fit_paa = self.to_paa(train_data)
+
         percentiles = np.linspace(0, 100, self.alphabet_size + 1)[1:-1]
-        
-        # Find actual threshold values in the data
-        self.breakpoints = np.percentile(paa_train, percentiles)
-        
+        self.breakpoints = np.percentile(self._fit_paa, percentiles)
+
         logger.info(f"Transformer fitted. Alphabet: {self.alphabet} | Breakpoints: {self.breakpoints}")
         return self
 
@@ -87,10 +84,10 @@ class SAXTransformer:
         return sax_symbols
 
     def fit_transform(self, train_data: np.ndarray) -> List[str]:
-        """Fits model on training data and converts to SAX symbols immediately."""
+        """Fits model on training data and converts to SAX symbols immediately.
+        Reuses the PAA cached inside fit() — no redundant recomputation."""
         self.fit(train_data)
-        paa = self.to_paa(train_data)
-        return self.to_sax(paa)
+        return self.to_sax(self._fit_paa)
 
     def transform(self, data: np.ndarray) -> List[str]:
         """Transforms given data into SAX sequence using existing breakpoints."""
@@ -112,25 +109,22 @@ class SAXTransformer:
         return patterns
 
 if __name__ == "__main__":
-    print("Testing SAX Transformer...")
-    # Create dummy sequential time series
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Testing SAX Transformer...")
+
     dummy_train = np.array([0.1, 0.2, 0.3, 0.9, 1.1, 1.0, 0.4, 0.5, 0.6])
     dummy_test = np.array([0.8, 1.2, 0.3])
-    
-    # Instantiate (uses config implicitly, but we can override)
+
     sax = SAXTransformer(window_size=2, alphabet_size=3)
-    
-    # 1. Fit & Transform Train
+
     train_symbols = sax.fit_transform(dummy_train)
-    print(f"Train Data:\n{dummy_train}")
-    print(f"PAA Result (means of size 2):\n{sax.to_paa(dummy_train)}")
-    print(f"Train SAX Sequence: {train_symbols}")
-    
-    # 2. Transform Test
+    logger.info(f"Train Data: {dummy_train}")
+    logger.info(f"PAA Result (cached): {sax._fit_paa}")
+    logger.info(f"Train SAX Sequence: {train_symbols}")
+
     test_symbols = sax.transform(dummy_test)
-    print(f"\nTest Data:\n{dummy_test}")
-    print(f"Test SAX Sequence: {test_symbols}")
-    
-    # 3. Pattern Extraction (Sliding Window over Symbols)
+    logger.info(f"Test Data: {dummy_test}")
+    logger.info(f"Test SAX Sequence: {test_symbols}")
+
     patterns = sax.extract_patterns(train_symbols, pattern_length=2)
-    print(f"\nExtracted Patterns (Slide len 2): {patterns}")
+    logger.info(f"Extracted Patterns (Slide len 2): {patterns}")

@@ -205,7 +205,14 @@ def main():
     for col in ['f1', 'accuracy', 'precision', 'recall']:
         if col in df_results.columns:
             agg_cols[col] = ['mean', 'std']
-    for col in ['train_time_sec', 'inference_time_sec']:
+    # Tablo 2: Unseen scenario metrics — mean±std across seeds
+    for col in ['detection_rate', 'mapping_accuracy']:
+        if col in df_results.columns:
+            agg_cols[col] = ['mean', 'std']
+    for col in ['unseen_window_count', 'train_time_sec', 'inference_time_sec', 'state_count']:
+        if col in df_results.columns:
+            agg_cols[col] = ['mean']
+    for col in ['density']:
         if col in df_results.columns:
             agg_cols[col] = ['mean']
 

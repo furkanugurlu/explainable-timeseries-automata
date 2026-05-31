@@ -34,11 +34,13 @@ def load_config(config_name: str = "config.yaml") -> Dict[str, Any]:
             raise Exception(f"Error parsing YAML configuration: {e}")
 
 if __name__ == "__main__":
-    # Example usage
+    import logging as _logging
+    import pprint
+    _logging.basicConfig(level=_logging.INFO)
+    _log = _logging.getLogger(__name__)
     try:
         cfg = load_config()
-        import pprint
-        print("Loaded Configuration Successfully:")
-        pprint.pprint(cfg)
+        _log.info("Loaded Configuration Successfully:")
+        _log.info(pprint.pformat(cfg))
     except Exception as error:
-        print(f"Failed to load config: {error}")
+        _log.error(f"Failed to load config: {error}")
