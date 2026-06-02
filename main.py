@@ -199,10 +199,14 @@ def main():
         for fold_idx, (X_tr, X_te, y_tr, y_te) in enumerate(skab_loader.get_folds(n_splits=5), 1):
             split = int(len(X_tr) * 0.8)
             data_sources.append({
-                "name": f"SKAB_Fold{fold_idx}",
-                "tr":  (X_tr[:split], y_tr[:split]),
-                "val": (X_tr[split:], y_tr[split:]),
-                "te":  (X_te, y_te),
+                "name":    f"SKAB_Fold{fold_idx}",
+                # DL models need a val split for early stopping — use 80/20 of fold train.
+                # Automata has no val requirement, so store the full fold train separately
+                # to avoid wasting 20 % of training data on an unused validation set.
+                "tr_full": (X_tr, y_tr),
+                "tr":      (X_tr[:split], y_tr[:split]),
+                "val":     (X_tr[split:], y_tr[split:]),
+                "te":      (X_te, y_te),
             })
         logging.info(f"SKAB: {sum(1 for d in data_sources if 'SKAB' in d['name'])} folds loaded.")
     except Exception as e:
@@ -237,8 +241,10 @@ def main():
 
     for ds in data_sources:
         ds_name = ds["name"]
-        X_tr, y_tr   = ds["tr"]
-        X_val, y_val = ds["val"]
+        X_tr, y_tr           = ds["tr"]
+        # Automata uses full fold train when available (SKAB); falls back to "tr" otherwise (BATADAL)
+        X_tr_full, y_tr_full = ds.get("tr_full", ds["tr"])
+        X_val, y_val         = ds["val"]
         X_te_orig, y_te_orig = ds["te"]
 
         for seed in seeds:
@@ -275,7 +281,7 @@ def main():
                     for a in a_sizes:
                         try:
                             pipeline = AutomataPipeline(window_size=w, alphabet_size=a)
-                            pipeline.fit(X_tr, y_tr)
+                            pipeline.fit(X_tr_full, y_tr_full)  # full fold train, not DL's 80 % split
                             auto_res = pipeline.get_metrics(X_test, y_test)
 
                             # Save explanations for Unseen scenario (rubric Kriter3 — 20pt)

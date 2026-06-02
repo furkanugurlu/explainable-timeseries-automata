@@ -64,6 +64,9 @@ def plot_confusion_matrix(y_true, y_pred, title_suffix=""):
 
 def plot_roc_pr_curves(y_true, y_prob, title_suffix=""):
     """Plots both ROC and Precision-Recall side-by-side."""
+    if len(np.unique(y_true)) < 2:
+        logger.warning(f"plot_roc_pr_curves skipped for '{title_suffix}': only one class in y_true.")
+        return
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     
     # ROC
