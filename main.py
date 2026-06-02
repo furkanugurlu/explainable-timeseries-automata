@@ -94,11 +94,27 @@ def run_cross_dataset_experiment(
     if skab_data is None:
         try:
             skab_loader = SKABDataLoader(config=cfg)
-            folds = list(skab_loader.get_folds(n_splits=5))
-            # Use fold 1 as the representative SKAB train/test split
-            X_sk_tr, X_sk_te, y_sk_tr, y_sk_te = folds[0]
+            # Combine all 5 folds' train+test into a single training set and a
+            # comprehensive test set for cross-dataset evaluation.
+            # next() avoids materialising all folds at once; we then collect the rest.
+            fold_gen = skab_loader.get_folds(n_splits=5)
+            all_X_tr, all_X_te, all_y_tr, all_y_te = [], [], [], []
+            for X_tr_f, X_te_f, y_tr_f, y_te_f in fold_gen:
+                all_X_tr.append(X_tr_f)
+                all_X_te.append(X_te_f)
+                all_y_tr.append(y_tr_f)
+                all_y_te.append(y_te_f)
+            # Training: union of all fold train sets (maximum coverage of SKAB)
+            # Test:     union of all fold test sets (all SKAB data seen as test)
+            X_sk_tr = np.vstack(all_X_tr)
+            y_sk_tr = np.concatenate(all_y_tr)
+            X_sk_te = np.vstack(all_X_te)
+            y_sk_te = np.concatenate(all_y_te)
             skab_data = (X_sk_tr, y_sk_tr, X_sk_te, y_sk_te)
-            logging.info("Cross-dataset: SKAB fold-1 loaded.")
+            logging.info(
+                f"Cross-dataset: SKAB loaded — "
+                f"train={X_sk_tr.shape}, test={X_sk_te.shape}"
+            )
         except Exception as e:
             logging.warning(f"Cross-dataset: SKAB unavailable — {e}")
 
@@ -285,41 +301,42 @@ def main():
     # --- STEP 3: Aggregation and Persistence ---
     logging.info("[3] Aggregating Final Results...")
 
+    # Aggregation only runs when the main experiment produced results.
+    # Step 4 (cross-dataset) always runs — it has its own independent data loading.
     if not all_results:
-        logging.error("No results collected. Terminating.")
-        return
+        logging.error("No main-experiment results collected — skipping Step 3 aggregation.")
+    else:
+        df_results = pd.DataFrame(all_results)
 
-    df_results = pd.DataFrame(all_results)
+        agg_cols = {}
+        for col in ['f1', 'accuracy', 'precision', 'recall']:
+            if col in df_results.columns:
+                agg_cols[col] = ['mean', 'std']
+        # Tablo 2: Unseen scenario metrics — mean±std across seeds
+        for col in ['detection_rate', 'mapping_accuracy']:
+            if col in df_results.columns:
+                agg_cols[col] = ['mean', 'std']
+        for col in ['unseen_window_count', 'train_time_sec', 'inference_time_sec', 'state_count']:
+            if col in df_results.columns:
+                agg_cols[col] = ['mean']
+        for col in ['density']:
+            if col in df_results.columns:
+                agg_cols[col] = ['mean']
 
-    agg_cols = {}
-    for col in ['f1', 'accuracy', 'precision', 'recall']:
-        if col in df_results.columns:
-            agg_cols[col] = ['mean', 'std']
-    # Tablo 2: Unseen scenario metrics — mean±std across seeds
-    for col in ['detection_rate', 'mapping_accuracy']:
-        if col in df_results.columns:
-            agg_cols[col] = ['mean', 'std']
-    for col in ['unseen_window_count', 'train_time_sec', 'inference_time_sec', 'state_count']:
-        if col in df_results.columns:
-            agg_cols[col] = ['mean']
-    for col in ['density']:
-        if col in df_results.columns:
-            agg_cols[col] = ['mean']
+        summary = df_results.groupby(["dataset", "scenario", "model"]).agg(agg_cols).reset_index()
 
-    summary = df_results.groupby(["dataset", "scenario", "model"]).agg(agg_cols).reset_index()
+        output_csv     = Path("results/experiment_full_raw.csv")
+        output_summary = Path("results/experiment_summary.csv")
+        df_results.to_csv(output_csv, index=False)
+        summary.to_csv(output_summary)
 
-    output_csv     = Path("results/experiment_full_raw.csv")
-    output_summary = Path("results/experiment_summary.csv")
-    df_results.to_csv(output_csv, index=False)
-    summary.to_csv(output_summary)
+        logging.info("#" * 50)
+        logging.info("EXPERIMENTS CONCLUDED SUCCESSFULLY.")
+        logging.info(f"Raw:     {output_csv}")
+        logging.info(f"Summary: {output_summary}")
+        logging.info("#" * 50)
 
-    logging.info("#" * 50)
-    logging.info("EXPERIMENTS CONCLUDED SUCCESSFULLY.")
-    logging.info(f"Raw:     {output_csv}")
-    logging.info(f"Summary: {output_summary}")
-    logging.info("#" * 50)
-
-    logging.info("\nSample Result Preview:\n" + summary.head(10).to_string())
+        logging.info("\nSample Result Preview:\n" + summary.head(10).to_string())
 
     # --- STEP 4: Cross-Dataset Generalizability (Tablo 3, 15 pts) ---
     logging.info("[4] Cross-Dataset Generalizability Experiment...")
