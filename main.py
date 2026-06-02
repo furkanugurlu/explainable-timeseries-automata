@@ -63,6 +63,95 @@ def run_automata_pipeline(X_tr, y_tr, X_te, y_te, w_size, a_size, name="Automata
     return pipeline.get_metrics(X_te, y_te)
 
 
+def run_cross_dataset_experiment(
+    cfg: dict,
+    seeds: list,
+    skab_data=None,
+    batadal_data=None,
+) -> pd.DataFrame:
+    """
+    Cross-dataset generalizability: train on one dataset, test on the other (Tablo 3, 15 pts).
+
+    Each direction (SKAB_to_BATADAL, BATADAL_to_SKAB) is evaluated with the full
+    parameter grid across all seeds.  Results are returned as a flat DataFrame
+    so callers can aggregate mean±std per direction and model variant.
+
+    Args:
+        cfg:          Full config dict — window_sizes and alphabet_sizes come from here.
+        seeds:        List of random seeds for reproducibility.
+        skab_data:    (X_tr, y_tr, X_te, y_te) after SKAB preprocessing, or None → disk load.
+        batadal_data: (X_tr, y_tr, X_te, y_te) after BATADAL preprocessing, or None → disk load.
+
+    Returns:
+        pd.DataFrame with one row per (seed × direction × model variant).
+        Empty DataFrame when either dataset is unavailable.
+    """
+    w_sizes = cfg['automata']['parameter_variations']['window_sizes']
+    a_sizes = cfg['automata']['parameter_variations']['alphabet_sizes']
+    results = []
+
+    # --- Load data from disk when not injected (production path) ---
+    if skab_data is None:
+        try:
+            skab_loader = SKABDataLoader(config=cfg)
+            folds = list(skab_loader.get_folds(n_splits=5))
+            # Use fold 1 as the representative SKAB train/test split
+            X_sk_tr, X_sk_te, y_sk_tr, y_sk_te = folds[0]
+            skab_data = (X_sk_tr, y_sk_tr, X_sk_te, y_sk_te)
+            logging.info("Cross-dataset: SKAB fold-1 loaded.")
+        except Exception as e:
+            logging.warning(f"Cross-dataset: SKAB unavailable — {e}")
+
+    if batadal_data is None:
+        try:
+            batadal_loader = BATADALDataLoader(config=cfg)
+            X_bd_tr, X_bd_val, X_bd_te, y_bd_tr, y_bd_val, y_bd_te = (
+                batadal_loader.get_processed_splits()
+            )
+            batadal_data = (X_bd_tr, y_bd_tr, X_bd_te, y_bd_te)
+            logging.info("Cross-dataset: BATADAL loaded.")
+        except Exception as e:
+            logging.warning(f"Cross-dataset: BATADAL unavailable — {e}")
+
+    if skab_data is None or batadal_data is None:
+        logging.warning("Cross-dataset: one or both datasets unavailable — returning empty results.")
+        return pd.DataFrame()
+
+    X_sk_tr, y_sk_tr, X_sk_te, y_sk_te = skab_data
+    X_bd_tr, y_bd_tr, X_bd_te, y_bd_te = batadal_data
+
+    # Both directions: (label, train_dataset, test_dataset, X_tr, y_tr, X_te, y_te)
+    experiment_pairs = [
+        ("SKAB_to_BATADAL", "SKAB",    "BATADAL", X_sk_tr, y_sk_tr, X_bd_te, y_bd_te),
+        ("BATADAL_to_SKAB", "BATADAL", "SKAB",    X_bd_tr, y_bd_tr, X_sk_te, y_sk_te),
+    ]
+
+    for seed in seeds:
+        set_seed(seed)
+
+        for direction, train_ds, test_ds, X_tr, y_tr, X_te, y_te in experiment_pairs:
+            logging.info(f"Cross-dataset: {direction} | seed={seed}")
+
+            for w in w_sizes:
+                for a in a_sizes:
+                    try:
+                        metrics = run_automata_pipeline(X_tr, y_tr, X_te, y_te, w_size=w, a_size=a)
+                        metrics.update({
+                            "direction":     direction,
+                            "train_dataset": train_ds,
+                            "test_dataset":  test_ds,
+                            "model":         f"Automata_W{w}_A{a}",
+                            "window":        w,
+                            "alphabet":      a,
+                            "seed":          seed,
+                        })
+                        results.append(metrics)
+                    except Exception as e:
+                        logging.debug(f"Cross {direction} W{w}/A{a}: {e}")
+
+    return pd.DataFrame(results)
+
+
 def main():
     setup_experiment_dirs()
 
@@ -231,6 +320,39 @@ def main():
     logging.info("#" * 50)
 
     logging.info("\nSample Result Preview:\n" + summary.head(10).to_string())
+
+    # --- STEP 4: Cross-Dataset Generalizability (Tablo 3, 15 pts) ---
+    logging.info("[4] Cross-Dataset Generalizability Experiment...")
+    cross_df = run_cross_dataset_experiment(cfg, seeds)
+    if not cross_df.empty:
+        cross_path = Path("results/cross_dataset.csv")
+        cross_df.to_csv(cross_path, index=False)
+        logging.info(f"Cross-dataset raw results saved to {cross_path}")
+
+        # mean±std per direction and model — this becomes Tablo 3 in the report
+        cross_agg = {}
+        for col in ['f1', 'accuracy', 'precision', 'recall']:
+            if col in cross_df.columns:
+                cross_agg[col] = ['mean', 'std']
+        for col in ['detection_rate', 'mapping_accuracy']:
+            if col in cross_df.columns:
+                cross_agg[col] = ['mean', 'std']
+        for col in ['train_time_sec', 'inference_time_sec', 'state_count', 'density']:
+            if col in cross_df.columns:
+                cross_agg[col] = ['mean']
+
+        if cross_agg:
+            cross_summary = (
+                cross_df.groupby(['direction', 'train_dataset', 'test_dataset', 'model'])
+                .agg(cross_agg)
+                .reset_index()
+            )
+            cross_summary_path = Path("results/cross_dataset_summary.csv")
+            cross_summary.to_csv(cross_summary_path)
+            logging.info(f"Cross-dataset summary (mean±std) saved to {cross_summary_path}")
+            logging.info("\nCross-Dataset Preview:\n" + cross_summary.to_string())
+    else:
+        logging.warning("Cross-dataset experiment produced no results (datasets not on disk).")
 
 
 if __name__ == "__main__":
