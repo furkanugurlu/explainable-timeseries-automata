@@ -87,7 +87,8 @@ class SKABDataLoader:
         # Select columns that are numeric and not in exclusion list
         feature_cols = [col for col in df.columns if col not in exclude_cols]
         X = df[feature_cols].copy()
-        
+        X = X.apply(pd.to_numeric, errors='coerce').fillna(0)
+
         # Group identifier for GroupKFold
         groups = df['source_file']
         

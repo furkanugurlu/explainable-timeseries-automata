@@ -12,11 +12,15 @@ class SAXTransformer:
     tailored for building a Probabilistic Automata.
     """
     def __init__(self, window_size: int = None, alphabet_size: int = None, config: dict = None):
-        cfg = config if config else load_config()
-        
-        # Use provided arguments or fall back to config defaults
-        self.window_size = window_size if window_size else cfg['automata']['defaults']['window_size']
-        self.alphabet_size = alphabet_size if alphabet_size else cfg['automata']['defaults']['alphabet_size']
+        # Load config only when at least one parameter needs a default — avoids hundreds of
+        # redundant file reads during the parameter grid search in main.py
+        if window_size is None or alphabet_size is None:
+            cfg = config if config is not None else load_config()
+        else:
+            cfg = None
+
+        self.window_size = window_size if window_size is not None else cfg['automata']['defaults']['window_size']
+        self.alphabet_size = alphabet_size if alphabet_size is not None else cfg['automata']['defaults']['alphabet_size']
         
         # Check validity
         if self.alphabet_size > 26:

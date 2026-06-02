@@ -136,15 +136,16 @@ def main():
         X_val, y_val = ds["val"]
         X_te_orig, y_te_orig = ds["te"]
 
-        scenarios = {
-            "Original":      (X_te_orig, y_te_orig),
-            "Gaussian_Noise": (add_gaussian_noise(X_te_orig, scale=noise_scale), y_te_orig),
-            # Unseen: same data, but automata tracks unseen pattern stats via Levenshtein mapping
-            "Unseen":        (X_te_orig, y_te_orig),
-        }
-
         for seed in seeds:
             set_seed(seed)
+
+            # Build scenarios AFTER set_seed so each seed produces a distinct noise realization
+            scenarios = {
+                "Original":       (X_te_orig, y_te_orig),
+                "Gaussian_Noise": (add_gaussian_noise(X_te_orig, scale=noise_scale), y_te_orig),
+                # Unseen: same data — automata tracks unseen patterns via Levenshtein mapping
+                "Unseen":         (X_te_orig, y_te_orig),
+            }
 
             for scenario_name, (X_test, y_test) in scenarios.items():
                 logging.info(f">>> {ds_name} | {scenario_name} | seed={seed}")

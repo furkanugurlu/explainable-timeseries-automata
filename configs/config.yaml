@@ -34,9 +34,8 @@ models:
   dl: [LSTM, GRU, CNN1D]
 
 experiments:
-  noise_scale: 0.15
-  unseen_ratio: 0.3
-  cross_dataset: true
+  noise_scale: 0.15        # Gaussian noise scenario scale (spec)
+  cross_dataset: true      # enables Day 3 cross-dataset runs
 
 logging:
   level: "INFO"
