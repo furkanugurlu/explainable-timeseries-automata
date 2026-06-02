@@ -239,6 +239,11 @@ def main():
     # --- STEP 2: Multi-Seed Experiments across Scenarios ---
     logging.info("[2] Starting Multi-Seed Evaluations...")
 
+    # Representative pipeline captured for Step 6 visualizations (default W/A, Original scenario)
+    _dw = cfg['automata']['defaults']['window_size']
+    _da = cfg['automata']['defaults']['alphabet_size']
+    _viz_data: Dict[str, Any] = {}
+
     for ds in data_sources:
         ds_name = ds["name"]
         X_tr, y_tr           = ds["tr"]
@@ -283,6 +288,16 @@ def main():
                             pipeline = AutomataPipeline(window_size=w, alphabet_size=a)
                             pipeline.fit(X_tr_full, y_tr_full)  # full fold train, not DL's 80 % split
                             auto_res = pipeline.get_metrics(X_test, y_test)
+
+                            # Capture representative pipeline for Step 6 (first default-params, Original)
+                            if (not _viz_data and scenario_name == "Original"
+                                    and w == _dw and a == _da):
+                                _viz_data["pipeline"] = pipeline
+                                _viz_data["y_true"]   = y_test[
+                                    len(y_test) - len(pipeline._y_pred):
+                                ].copy()
+                                _viz_data["y_pred"]   = pipeline._y_pred.copy()
+                                _viz_data["ds_name"]  = ds_name
 
                             # Save explanations for Unseen scenario (rubric Kriter3 — 20pt)
                             if scenario_name == "Unseen":
@@ -343,6 +358,89 @@ def main():
         logging.info("#" * 50)
 
         logging.info("\nSample Result Preview:\n" + summary.head(10).to_string())
+
+        # --- STEP 5: Wilcoxon Statistical Significance Tests (rubric Kriter4 — 5 pts) ---
+        logging.info("[5] Running Wilcoxon Statistical Tests (Automata vs DL)...")
+        from src.visualization.visualization_and_stats import perform_wilcoxon_test as _wilcoxon
+
+        wilcoxon_rows = []
+        auto_key = f"Automata_W{_dw}_A{_da}"
+
+        for ds_n in df_results['dataset'].unique():
+            orig_df = df_results[
+                (df_results['dataset'] == ds_n) & (df_results['scenario'] == 'Original')
+            ]
+            auto_f1 = (
+                orig_df[orig_df['model'] == auto_key]
+                .groupby('seed')['f1'].mean()
+            )
+            for dl_name in dl_model_names:
+                dl_f1 = (
+                    orig_df[orig_df['model'] == dl_name]
+                    .groupby('seed')['f1'].mean()
+                )
+                common = sorted(set(auto_f1.index) & set(dl_f1.index))
+                if len(common) >= 2:
+                    res = _wilcoxon(
+                        auto_f1[common].tolist(),
+                        dl_f1[common].tolist(),
+                        auto_key, dl_name,
+                    )
+                    if res:
+                        res.update({
+                            'dataset': ds_n,
+                            'model_a': auto_key,
+                            'model_b': dl_name,
+                        })
+                        wilcoxon_rows.append(res)
+
+        if wilcoxon_rows:
+            wilcoxon_df = pd.DataFrame(wilcoxon_rows)
+            wilcoxon_path = Path("results/wilcoxon_results.csv")
+            wilcoxon_df.to_csv(wilcoxon_path, index=False)
+            logging.info(f"Wilcoxon results saved to {wilcoxon_path}")
+            logging.info("\nWilcoxon Summary:\n" + wilcoxon_df.to_string())
+        else:
+            logging.warning("Wilcoxon: no common seeds found — skipping CSV.")
+
+        # --- STEP 6: Visualizations (rubric Kriter5 — 3 pts) ---
+        logging.info("[6] Generating Experiment Visualizations...")
+        from src.visualization.visualization_and_stats import (
+            plot_confusion_matrix,
+            plot_roc_pr_curves,
+            plot_hyperparameter_heatmap,
+            plot_transition_heatmap,
+            draw_automata_graph,
+        )
+
+        # Parametre duyarlılık heatmap: window_size vs alphabet_size (Tablo 4 görseli)
+        if 'window' in df_results.columns:
+            auto_viz_df = df_results[
+                df_results['model'].str.startswith('Automata')
+            ].copy()
+            if not auto_viz_df.empty:
+                plot_hyperparameter_heatmap(auto_viz_df, metric='f1')
+
+        # Pipeline-based figures: confusion matrix, ROC/PR, state diagrams
+        if _viz_data:
+            viz_p      = _viz_data["pipeline"]
+            viz_y_true = _viz_data["y_true"]
+            viz_y_pred = _viz_data["y_pred"]
+            viz_ds     = _viz_data["ds_name"]
+
+            plot_confusion_matrix(viz_y_true, viz_y_pred, f"Automata_{viz_ds}")
+
+            # Negate path probs: low prob = high anomaly score (sklearn roc_curve convention)
+            path_probs     = viz_p.get_path_probabilities()
+            anomaly_scores = np.array(path_probs) * -1.0
+            plot_roc_pr_curves(viz_y_true, anomaly_scores, f"Automata_{viz_ds}")
+
+            plot_transition_heatmap(viz_p.model.probabilities)
+            draw_automata_graph(viz_p.model.probabilities)
+
+            logging.info("All visualizations saved to results/figures/")
+        else:
+            logging.warning("No representative pipeline captured — state diagram figures skipped.")
 
     # --- STEP 4: Cross-Dataset Generalizability (Tablo 3, 15 pts) ---
     logging.info("[4] Cross-Dataset Generalizability Experiment...")
