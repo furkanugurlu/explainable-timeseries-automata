@@ -40,7 +40,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.val_loss_min = np.Inf
+        self.val_loss_min = np.inf
         self.delta = delta
         self.best_model_wts = None
 
@@ -242,8 +242,8 @@ def train_evaluate_dl(
     with torch.no_grad():
         for inputs, targets in test_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs).squeeze()
-            
+            outputs = model(inputs).squeeze(1)  # squeeze only output dim, keep batch dim
+
             # Thresholding for binary classification
             preds = (outputs > 0.5).float()
             

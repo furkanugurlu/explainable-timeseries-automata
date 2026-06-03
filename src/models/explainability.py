@@ -95,15 +95,15 @@ class AutomataExplainer:
         
         explanation = {
             "time_step": current_idx,
-            # Current active full window
             "window_sequence": window_patterns,
+            "state": window_patterns[-2] if len(window_patterns) >= 2 else window_patterns[0],
             "pattern": final_pattern,
             "status": final_status,
-            # Null if not mapped as requested
             "mapped_to": final_mapped if final_status == 'unseen' else None,
             "transitions": detailed_transitions,
             "path_probability": float(path_prob),
-            "decision": "Anomaly" if is_anomaly else "Normal",
+            "probability": float(path_prob),
+            "decision": "anomaly" if is_anomaly else "normal",
             "confidence_score": round(confidence_score, 4)
         }
         
@@ -128,7 +128,7 @@ class AutomataExplainer:
             # Filter for Anomalies ONLY if preferred or keep all. 
             # The request implies analyzing the decision of model (especially for anomalies). 
             # We will keep all in result list, but users can filter downstream.
-            if result['decision'] == "Anomaly":
+            if result['decision'] == "anomaly":
                 all_explanations.append(result)
                 
         if json_output:

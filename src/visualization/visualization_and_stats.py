@@ -127,8 +127,11 @@ def plot_transition_heatmap(model_probabilities: Dict[str, Dict[str, float]]):
     states = sorted(list(set(model_probabilities.keys()) | {to_s for to_vals in model_probabilities.values() for to_s in to_vals}))
     
     if len(states) > 30:
-        logger.warning("Automata state count > 30 — clipping transition heatmap to top 20 states.")
-        states = states[:20]
+        # Keep top 20 states by total outgoing transition weight (most active)
+        outgoing_weight = {s: sum(model_probabilities.get(s, {}).values()) for s in states}
+        states = sorted(states, key=lambda s: outgoing_weight[s], reverse=True)[:20]
+        states = sorted(states)  # re-sort alphabetically for readable axes
+        logger.warning(f"Automata state count > 30 — showing top 20 most active states.")
         
     # Build matrix
     size = len(states)
