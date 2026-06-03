@@ -23,6 +23,8 @@ training:
     - 999
 
 automata:
+  epsilon: 0.00001                 # Laplace smoothing for unseen transitions
+  anomaly_threshold_percentile: 5  # 5th percentile of train path probs as threshold
   parameter_variations:
     window_sizes: [3, 4, 5, 6]
     alphabet_sizes: [3, 4, 5, 6]

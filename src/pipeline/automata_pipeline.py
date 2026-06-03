@@ -11,6 +11,7 @@ from src.models.base_model import BaseAnomalyDetector
 from src.models.automata_transform import SAXTransformer
 from src.models.automata_model import ProbabilisticAutomata
 from src.models.explainability import AutomataExplainer
+from src.utils.config_loader import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,14 @@ class AutomataPipeline(BaseAnomalyDetector):
     All parameters come from config — no hardcoded values (spec VIII).
     """
 
-    def __init__(self, window_size: int, alphabet_size: int):
+    def __init__(self, window_size: int, alphabet_size: int, config: dict = None):
         self.window_size = window_size
         self.alphabet_size = alphabet_size
+        cfg = config or load_config()
+        epsilon = cfg['automata'].get('epsilon', 1e-5)
+        threshold_pct = cfg['automata'].get('anomaly_threshold_percentile', 5)
         self.transformer = SAXTransformer(window_size=window_size, alphabet_size=alphabet_size)
-        self.model = ProbabilisticAutomata()
+        self.model = ProbabilisticAutomata(smoothing_epsilon=epsilon, threshold_percentile=threshold_pct)
         self._train_time: float = 0.0
         self._y_pred: Optional[np.ndarray] = None
         self._unseen_flags: Optional[List[bool]] = None

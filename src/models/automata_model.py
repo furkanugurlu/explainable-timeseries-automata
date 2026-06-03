@@ -11,7 +11,7 @@ class ProbabilisticAutomata:
     Builds a frequency-based Probabilistic Automata derived from SAX patterns.
     Transitions are tracked between consecutive sequential patterns.
     """
-    def __init__(self, smoothing_epsilon: float = 1e-5):
+    def __init__(self, smoothing_epsilon: float = 1e-5, threshold_percentile: int = 5):
         # Transition counts: transitions[from_state][to_state]
         self.transitions = defaultdict(Counter)
         # Transition probabilities
@@ -20,6 +20,8 @@ class ProbabilisticAutomata:
         self.states = set()
         # Pseudocount for unseen transitions to prevent strict zero probabilities
         self.epsilon = smoothing_epsilon
+        # Percentile used to compute anomaly threshold from training path probabilities
+        self.threshold_percentile = threshold_percentile
         # Automatic threshold computed during fitting
         self.anomaly_threshold = 0.0
 
@@ -54,8 +56,8 @@ class ProbabilisticAutomata:
 
         train_probs = self.calculate_sequence_probabilities(patterns, window_len=window_len)
         if train_probs:
-            self.anomaly_threshold = np.percentile(train_probs, 5)
-            logger.info(f"Anomaly threshold (5th pct): {self.anomaly_threshold:.4e}")
+            self.anomaly_threshold = np.percentile(train_probs, self.threshold_percentile)
+            logger.info(f"Anomaly threshold ({self.threshold_percentile}th pct): {self.anomaly_threshold:.4e}")
 
     def get_transition_prob(self, from_state: str, to_state: str) -> float:
         """
