@@ -677,7 +677,7 @@ BATADAL:
 >
 > DL modelleri bu etkiyi çok daha az yaşamaktadır; çünkü model boyunca çok katmanlı doğrusal olmayan dönüşümler gürültü sinyalini normalize etme eğilimindedir.
 
-> **Unseen Senaryo:** Automata'nın Orijinal ve Unseen senaryolarında aynı F1 üretmesi, Levenshtein eşleme mekanizmasının tespit performansını koruduğunu ancak iyileştirmediğini göstermektedir. Eşleme doğruluğunun (%35.44) düşük olması, görülmemiş örüntülerin büyük kısmının eğitimde gözlemlenenlerden belirgin biçimde farklı olduğuna işaret etmektedir.
+> **Unseen Senaryo:** Automata'nın Orijinal ve Unseen senaryolarında aynı F1 üretmesi, Levenshtein eşleme mekanizmasının tespit performansını koruduğunu ancak iyileştirmediğini göstermektedir. Eşleme doğruluğunun (%34.70) düşük olması, görülmemiş örüntülerin büyük kısmının eğitimde gözlemlenenlerden belirgin biçimde farklı olduğuna işaret etmektedir.
 
 ---
 
@@ -854,12 +854,12 @@ Automata\_W4\_A3 ile her DL modeli arasındaki F1 farkının istatistiksel anlam
 src/models/automata_model.py
   - ProbabilisticAutomata.fit()         frekans tabanlı geçiş sayımı
   - ProbabilisticAutomata.predict()     5. persentil eşik kararı
-  - epsilon = 1e-5                      Laplace düzleştirme
+  - epsilon = 1e-5                      Laplace düzleştirme (config'den yüklenir)
 
 src/models/automata_transform.py
   - SAXTransformer.fit()                ampirik kuantil breakpoint hesabı
   - SAXTransformer.transform()          np.digitize ile sembol ataması
-  - SAXTransformer.sliding_window()     kayan pencere örüntü üretimi
+  - SAXTransformer.extract_patterns()   kayan pencere örüntü üretimi
 
 src/models/dl_models.py
   - LSTMModel / GRUModel / CNN1DModel   nn.Module alt sınıfları
@@ -868,19 +868,19 @@ src/models/dl_models.py
 
 src/models/explainability.py
   - explain_anomalies()                 tüm test adımları için JSON üretimi
-  - decision karşılaştırması: "anomaly" (küçük harf) — kritik düzeltme
+  - decision karşılaştırması: "anomaly" (küçük harf)
 
 src/utils/distance.py
   - levenshtein_distance(s1, s2)        dinamik programlama, O(m×n)
-  - find_nearest_pattern(unseen, known) min mesafe ile eşleme
+  - find_closest_pattern(target, dict)  min mesafe ile eşleme
 
 tests/
-  - test_automata_model.py      (12 test)
-  - test_automata_transform.py  (14 test)
-  - test_data_loader_batadal.py  (9 test)
-  - test_data_loader_skab.py    (11 test)
-  - test_distance.py            (15 test)
-  - test_visualization.py        (8 test)
+  - test_pipeline_integrity.py  (24 test)
+  - test_day4_wilcoxon_viz.py   (13 test)
+  - test_unseen_scenario.py     (10 test)
+  - test_cross_dataset.py        (7 test)
+  - test_explainability.py       (7 test)
+  - test_levenshtein.py          (8 test)
   Toplam: 69 test — tamamı geçiyor
 ```
 
