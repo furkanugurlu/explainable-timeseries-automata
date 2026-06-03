@@ -1,0 +1,62 @@
+[
+  {
+    "time_step": 96,
+    "window_sequence": [
+      "ccc",
+      "ccb",
+      "cbc"
+    ],
+    "state": "ccb",
+    "pattern": "cbc",
+    "status": "known",
+    "mapped_to": null,
+    "transitions": [
+      "ccc -> ccb : 0.0294",
+      "ccb -> cbc : 0.4872"
+    ],
+    "path_probability": 0.014298769015750149,
+    "probability": 0.014298769015750149,
+    "decision": "anomaly",
+    "confidence_score": 0.2583
+  },
+  {
+    "time_step": 265,
+    "window_sequence": [
+      "ccc",
+      "ccb",
+      "cbc"
+    ],
+    "state": "ccb",
+    "pattern": "cbc",
+    "status": "known",
+    "mapped_to": null,
+    "transitions": [
+      "ccc -> ccb : 0.0294",
+      "ccb -> cbc : 0.4872"
+    ],
+    "path_probability": 0.014298769015750149,
+    "probability": 0.014298769015750149,
+    "decision": "anomaly",
+    "confidence_score": 0.2583
+  },
+  {
+    "time_step": 377,
+    "window_sequence": [
+      "ccc",
+      "ccd",
+      "cdd"
+    ],
+    "state": "ccd",
+    "pattern": "cdd",
+    "status": "known",
+    "mapped_to": null,
+    "transitions": [
+      "ccc -> ccd : 0.0262",
+      "ccd -> cdd : 0.3421"
+    ],
+    "path_probability": 0.008965022619441685,
+    "probability": 0.008965022619441685,
+    "decision": "anomaly",
+    "confidence_score": 0.1842
+  }
+]
