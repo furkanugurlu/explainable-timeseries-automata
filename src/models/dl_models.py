@@ -144,6 +144,139 @@ class CNN1DModel(nn.Module):
             
         return self.fc(x)
 
+class LSTMAutoencoder(nn.Module):
+    """
+    LSTM autoencoder for reconstruction-based anomaly detection.
+
+    Trained on NORMAL windows only; at test time a window with high
+    reconstruction error (the model fails to rebuild it) is flagged as an
+    anomaly. Unlike the supervised classifiers, this does not need to have
+    seen the specific attack pattern — it only needs to know what "normal"
+    looks like, which is why it copes with BATADAL's chronological shift.
+    """
+    def __init__(self, input_dim: int = 1, hidden_dim: int = 64, latent_dim: int = 32, num_layers: int = 1):
+        super(LSTMAutoencoder, self).__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.enc_to_latent = nn.Linear(hidden_dim, latent_dim)
+        self.latent_to_dec = nn.Linear(latent_dim, hidden_dim)
+        self.decoder = nn.LSTM(hidden_dim, hidden_dim, num_layers, batch_first=True)
+        self.output_layer = nn.Linear(hidden_dim, input_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        seq_len = x.size(1)
+        _, (h, _) = self.encoder(x)
+        latent = self.enc_to_latent(h[-1])                    # (batch, latent_dim)
+        dec_seed = self.latent_to_dec(latent)                 # (batch, hidden_dim)
+        dec_seq = dec_seed.unsqueeze(1).repeat(1, seq_len, 1) # (batch, seq_len, hidden_dim)
+        dec_out, _ = self.decoder(dec_seq)
+        return self.output_layer(dec_out)                     # (batch, seq_len, input_dim)
+
+
+def _make_windows(X: np.ndarray, y: np.ndarray, w: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Sliding windows of length w; each window labelled by its last step."""
+    n = len(X) - w + 1
+    Xw = np.stack([X[i:i + w] for i in range(n)])
+    yw = np.array([y[i + w - 1] for i in range(n)])
+    return Xw, yw
+
+
+def train_evaluate_autoencoder(
+    X_train: np.ndarray, y_train: np.ndarray,
+    X_val: np.ndarray, y_val: np.ndarray,
+    X_test: np.ndarray, y_test: np.ndarray,
+    window_size: int = None,
+    config: dict = None,
+) -> Dict[str, float]:
+    """
+    Reconstruction-based anomaly detection with an LSTM autoencoder.
+
+    Trains on the normal windows of the training set, scores every test window
+    by reconstruction MSE, and picks the error threshold that maximises F1 on
+    the validation set. Returns the same metric keys as train_evaluate_dl.
+    """
+    cfg = config if config else load_config()
+    batch_size = cfg['training']['batch_size']
+    epochs = cfg['training']['epochs']
+    patience = cfg['training']['patience']
+    if window_size is None:
+        window_size = cfg['automata']['defaults']['window_size']
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cpu":
+        torch.set_num_threads(1)
+
+    Xtr_w, ytr_w = _make_windows(X_train, y_train, window_size)
+    Xval_w, yval_w = _make_windows(X_val, y_val, window_size)
+    Xte_w, yte_w = _make_windows(X_test, y_test, window_size)
+
+    # Train only on NORMAL windows (semi-supervised)
+    normal = ytr_w == 0
+    Xtr_norm = torch.FloatTensor(Xtr_w[normal])
+    train_loader = DataLoader(
+        torch.utils.data.TensorDataset(Xtr_norm), batch_size=batch_size, shuffle=True
+    )
+    Xval_norm = torch.FloatTensor(Xval_w[yval_w == 0])
+
+    model = LSTMAutoencoder(input_dim=X_train.shape[1]).to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    early_stopping = EarlyStopping(patience=patience)
+
+    train_start_time = time.time()
+    for epoch in range(epochs):
+        model.train()
+        for (batch,) in train_loader:
+            batch = batch.to(device)
+            optimizer.zero_grad()
+            loss = criterion(model(batch), batch)
+            loss.backward()
+            optimizer.step()
+        model.eval()
+        with torch.no_grad():
+            vb = Xval_norm.to(device)
+            val_loss = criterion(model(vb), vb).item()
+        early_stopping(val_loss, model)
+        if early_stopping.early_stop:
+            break
+    model.load_state_dict(early_stopping.best_model_wts)
+    train_duration = time.time() - train_start_time
+
+    def _recon_error(Xw):
+        out = []
+        with torch.no_grad():
+            for i in range(0, len(Xw), batch_size):
+                b = torch.FloatTensor(Xw[i:i + batch_size]).to(device)
+                err = ((model(b) - b) ** 2).mean(dim=(1, 2))  # per-window MSE
+                out.extend(err.cpu().numpy())
+        return np.array(out)
+
+    inference_start_time = time.time()
+    val_err = _recon_error(Xval_w)
+    test_err = _recon_error(Xte_w)
+    inference_duration = time.time() - inference_start_time
+
+    # Threshold = error percentile maximising validation F1
+    best_f1, best_thr = -1.0, float(np.median(val_err))
+    for p in np.linspace(50, 99.5, 60):
+        thr = np.percentile(val_err, p)
+        f1 = f1_score(yval_w, (val_err > thr).astype(int), zero_division=0)
+        if f1 > best_f1:
+            best_f1, best_thr = f1, thr
+
+    preds = (test_err > best_thr).astype(int)
+    return {
+        "accuracy": accuracy_score(yte_w, preds),
+        "precision": precision_score(yte_w, preds, zero_division=0),
+        "recall": recall_score(yte_w, preds, zero_division=0),
+        "f1": f1_score(yte_w, preds, zero_division=0),
+        "train_time_sec": train_duration,
+        "inference_time_sec": inference_duration,
+        "threshold": float(best_thr),
+    }
+
+
 def train_evaluate_dl(
     model_class: Type[nn.Module],
     X_train: np.ndarray, y_train: np.ndarray,
@@ -151,7 +284,9 @@ def train_evaluate_dl(
     X_test: np.ndarray, y_test: np.ndarray,
     window_size: int = None,
     config: dict = None,
-    return_outputs: bool = False
+    return_outputs: bool = False,
+    use_class_weight: bool = False,
+    tune_threshold: bool = False
 ) -> Dict[str, float]:
     """
     Trains and evaluates a deep learning model following config strict rules.
@@ -160,6 +295,14 @@ def train_evaluate_dl(
     If return_outputs=True, the dict also contains 'y_true' and 'y_prob'
     numpy arrays (windowed test labels + sigmoid probabilities) so callers
     can build confusion matrices and ROC/PR curves.
+
+    Imbalance handling (both default OFF — the default path is numerically
+    identical to plain BCELoss + 0.5 threshold, so SKAB results are unchanged):
+    - use_class_weight: weights the positive class in BCE by neg/pos ratio of
+      the training labels, so a rare-anomaly dataset (e.g. BATADAL ~4%) is not
+      collapsed into a majority-class predictor.
+    - tune_threshold: instead of a fixed 0.5 cut, picks the decision threshold
+      that maximises F1 on the validation set, then applies it to the test set.
     """
     cfg = config if config else load_config()
     
@@ -192,7 +335,25 @@ def train_evaluate_dl(
     # Assume input dimension is always size of feature columns (PC1 implies 1 dim)
     input_dim = X_train.shape[1]
     model = model_class(input_dim=input_dim).to(device)
-    criterion = nn.BCELoss()
+    # reduction='none' lets us apply per-sample class weights; calling .mean()
+    # afterwards reproduces plain BCELoss exactly when use_class_weight=False.
+    criterion = nn.BCELoss(reduction='none')
+
+    # Positive-class weight = neg/pos ratio of train labels (computed, not hard-coded)
+    pos_weight_val = 1.0
+    if use_class_weight:
+        pos = float((np.asarray(y_train) == 1).sum())
+        neg = float((np.asarray(y_train) == 0).sum())
+        pos_weight_val = neg / max(pos, 1.0)
+        logger.info(f"Class weighting ON: pos_weight={pos_weight_val:.2f} (neg={neg:.0f}, pos={pos:.0f})")
+
+    def _weighted_bce(outputs, targets):
+        loss_elem = criterion(outputs, targets)
+        if use_class_weight:
+            w = torch.where(targets > 0.5, pos_weight_val, 1.0)
+            return (loss_elem * w).mean()
+        return loss_elem.mean()
+
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     early_stopping = EarlyStopping(patience=patience, verbose=True)
@@ -210,20 +371,20 @@ def train_evaluate_dl(
             
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            loss = _weighted_bce(outputs, targets)
             loss.backward()
             optimizer.step()
-            
+
             train_loss += loss.item()
-            
-        # Validation cycle
+
+        # Validation cycle (early stopping monitors unweighted val loss)
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(device), targets.to(device).unsqueeze(1)
                 outputs = model(inputs)
-                loss = criterion(outputs, targets)
+                loss = criterion(outputs, targets).mean()
                 val_loss += loss.item()
         
         avg_train_loss = train_loss / len(train_loader)
@@ -239,7 +400,27 @@ def train_evaluate_dl(
     model.load_state_dict(early_stopping.best_model_wts)
     train_duration = time.time() - train_start_time
     logger.info(f"Training complete. Best weights restored. Duration: {train_duration:.2f}s")
-    
+
+    # Decision threshold: fixed 0.5, or the value maximising F1 on the validation set
+    decision_threshold = 0.5
+    if tune_threshold:
+        val_probs, val_targets = [], []
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                inputs = inputs.to(device)
+                out = model(inputs).squeeze(1)
+                val_probs.extend(out.cpu().numpy())
+                val_targets.extend(targets.numpy())
+        val_probs = np.array(val_probs)
+        val_targets = np.array(val_targets)
+        best_f1, best_thr = -1.0, 0.5
+        for thr in np.linspace(0.05, 0.95, 19):
+            f1 = f1_score(val_targets, (val_probs > thr).astype(int), zero_division=0)
+            if f1 > best_f1:
+                best_f1, best_thr = f1, thr
+        decision_threshold = float(best_thr)
+        logger.info(f"Threshold tuning ON: best val-F1={best_f1:.4f} at threshold={decision_threshold:.2f}")
+
     # Evaluation on Test Set
     model.eval()
     all_preds = []
@@ -254,7 +435,7 @@ def train_evaluate_dl(
             outputs = model(inputs).squeeze(1)  # squeeze only output dim, keep batch dim
 
             # Thresholding for binary classification
-            preds = (outputs > 0.5).float()
+            preds = (outputs > decision_threshold).float()
 
             all_preds.extend(preds.cpu().numpy())
             all_probs.extend(outputs.cpu().numpy())
@@ -273,7 +454,9 @@ def train_evaluate_dl(
         "recall": recall_score(all_targets, all_preds, zero_division=0),
         "f1": f1_score(all_targets, all_preds, zero_division=0),
         "train_time_sec": train_duration,
-        "inference_time_sec": inference_duration
+        "inference_time_sec": inference_duration,
+        "threshold": decision_threshold,
+        "pos_weight": pos_weight_val
     }
 
     logger.info(f"Eval metrics: {', '.join(f'{k}={v:.4f}' for k, v in metrics.items())}")

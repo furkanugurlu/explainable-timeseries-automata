@@ -47,7 +47,7 @@ Karşılaştırma; yalnızca tahmin doğruluğu değil, aynı zamanda **gürült
 - DL modelleri (LSTM/GRU/1D-CNN), spec gereği PCA bottleneck'i olmadan **çok değişkenli (multivariate)** ham sinyalle eğitilmektedir (SKAB: 8, BATADAL: 43 özellik); Automata ise spec IV gereği PCA→PC1 (1 boyut) ile çalışmaktadır — bu iki görünüm aynı deterministik GroupKFold bölmesinin paralel projeksiyonlarıdır.
 - Bu çok değişkenli girdiyle LSTM ve GRU, SKAB'ın **5 foldunun tamamında** Automata'yı büyük farkla geçmektedir (ortalama F1: LSTM 0.8253, GRU 0.8145 vs en iyi Automata W6\_A6: 0.2415).
 - Gaussian gürültü artık DL modellerinin performansını **beklenen şekilde düşürmektedir** (LSTM −18.4%, GRU −16.9%, CNN1D −6.9%); buna karşın Automata'da gürültü paradoksal biçimde F1'i artırmaktadır (W6\_A6: +140%, W4\_A4: +266%).
-- BATADAL'da DL modelleri çok değişkenli (43 özellik) girdiyle de F1=0.0 üretmektedir — kök neden **PCA değil, ağır sınıf dengesizliğidir** (test setinde anomali oranı ~%9.6, accuracy≈0.904≈1−pozitif oranı, precision=recall=0 → çoğunluk-sınıfı dejenere sınıflandırıcı).
+- BATADAL'da **supervised** DL sınıflandırıcıları (LSTM/GRU/1D-CNN) çok değişkenli girdiyle ve hatta sınıf-ağırlıklandırma + eşik ayarıyla bile F1≈0.0 üretmektedir — kök neden PCA veya salt sınıf dengesizliği değil, **kronolojik dağılım kaymasıdır** (test saldırısı eğitimdekilere benzemiyor). Buna karşın **reconstruction-tabanlı bir LSTM autoencoder** (yalnızca normal veriyle eğitilir) BATADAL'da **F1≈0.57 (recall≈1.0)** elde etmektedir — bkz. [§8 BATADAL Reconstruction-Based AD](#batadal--reconstruction-based-anomaly-detection-lstm-autoencoder).
 - **Tekrarlanabilirlik:** DL modelleri koşular arası **birebir** tekrarlanabilir (aynı seed → aynı sonuç). Automata, gürültüsüz senaryolarda (Original/Unseen) bir koşu içinde 5 seed boyunca tamamen deterministiktir (std=0.000); koşular arasında ise yalnızca çok küçük bir varyans gösterir (≤0.06 F1, yalnızca unseen-pattern eşlemesi olan birkaç W/A konfigünde) — ayrıntı [§8 Seed Stabilitesi](#tablo-1--model-performansı-ve-stabilitesi).
 - 1710 deney çalıştırması, 480 açıklama JSON dosyası ve 69 birim testi tamamlanmıştır.
 
@@ -697,15 +697,14 @@ DL modelleri burada **çok değişkenli (8 özellik) ham sinyal** ile, Automata 
 | 1D-CNN | 0.9040 | 0.0000 | 0.0000 | 0.0000 ± 0.0000 | idem |
 | Automata (tüm konfigürasyonlar) | — | — | — | 0.0000 ± 0.0000 | idem (PC1 ile de aynı sonuç) |
 
-> **BATADAL F1=0 Mekanizması — Güncellenmiş Bulgu:**
-> DL modelleri burada PCA bottleneck'i **olmadan**, 43 özelliğin tamamıyla (çok değişkenli) eğitilmiştir; buna rağmen sonuç değişmemiştir — bu, F1=0 sorununun kaynağının PCA→1D indirgeme olmadığını kanıtlamaktadır.
+> **BATADAL F1=0 Mekanizması — Kademeli Teşhis:**
+> **(1) PCA değil:** DL modelleri burada PCA bottleneck'i olmadan, 43 özelliğin tamamıyla eğitilmiştir; sonuç yine F1=0 → kaynak PCA→1D indirgeme değildir.
 >
-> Gerçek kök neden **sınıf dengesizliğidir**: eğitim setinde anomali oranı %4.07, doğrulama setinde %4.43 iken test setinde %9.57'ye yükselmektedir (kronolojik bölme — saldırılar zaman içinde yoğunlaşmaktadır). BCELoss + 0.5 eşik ile eğitilen modeller, eğitim dağılımındaki ezici çoğunluğa (normal=%96) göre öğrenmekte ve test setinde **tüm örnekleri "normal" (0)** olarak tahmin etmektedir:
+> **(2) Salt sınıf dengesizliği de değil:** Eğitimde anomali oranı %4.07 → test %9.57 (kronolojik bölme). İlk hipotez sınıf dengesizliğiydi; bunu test etmek için **class weighting (`pos_weight=23.6`, train'den hesaplı) + validation eşik ayarı** uyguladık (`results/batadal_imbalance.csv`). Sonuç hâlâ ≈0 (GRU 0.011, LSTM/CNN ~0). Üstelik eşik 0.05'e indirilince bile **hem precision hem recall ≈0** kaldı — bu, sorunun eşik/dengesizlik olmadığını kanıtlar (eşik sorunu olsaydı düşük eşikte recall yükselirdi).
 >
-> - Accuracy ≈ 0.904 ≈ 1 − (test anomali oranı = %9.57) → model "her şey normal" diyen bir sabit-tahminciyle aynı doğruluğu üretmektedir.
-> - Precision = Recall = 0 → pozitif sınıf (anomali) için hiçbir tahmin üretilmemektedir.
+> **(3) Gerçek kök neden — kronolojik dağılım kayması:** Test setindeki saldırı dönemi, eğitimdeki saldırılara benzemiyor. Supervised sınıflandırıcı eğitim anomalilerini öğreniyor ama test anomalilerini "görmediği" için tanıyamıyor; class weighting yalnızca **yanlış** pozitifler ürettiriyor (precision≈0).
 >
-> Automata da PC1 girdisiyle aynı şekilde F1=0 vermektedir; ancak bu artık "PCA sinyali yok ediyor" şeklinde yorumlanmamalıdır — asıl sorun, BATADAL'ın eğitim/test dağılım kayması ve şiddetli sınıf dengesizliğidir. Olası bir çözüm yönü class-weighting / oversampling (örn. focal loss, `pos_weight`) olabilir, ancak bu proje kapsamının (spec) dışındadır.
+> **(4) Çözüm — reconstruction-tabanlı AD:** Yalnızca *normal*'i öğrenen bir model bu sorunu aşar. Aşağıdaki bölümde gösterildiği gibi, bir **LSTM autoencoder** BATADAL'da **F1≈0.57** elde eder.
 
 > **Seed Stabilitesi ve Tekrarlanabilirlik — Temel Bulgu (dürüst karakterizasyon):**
 > Automata modeli, **gürültüsüz senaryolarda (Original/Unseen) bir koşu içinde tamamen seed-deterministiktir**: aynı eğitim verisi için 5 farklı seed daima aynı F1 değerini üretir (std=0.000). Bu, SAX/PAA frekans tabanlı öğrenmenin rastgele başlangıç ağırlıklarından bağımsız olduğunu gösterir. Buna karşılık DL modellerinde seed bağımlılığı sürmektedir; örneğin GRU/Fold2'de F1 değerleri:
@@ -736,6 +735,24 @@ DL modelleri burada **çok değişkenli (8 özellik) ham sinyal** ile, Automata 
 > | W6\_A6 | 0.625 | 0.156 | ~%8.7 | ~%35 |
 >
 > Yani Automata **fazla muhafazakârdır**: işaretlediğinde genelde haklıdır (precision artıyor: W4A3 %29 → W6A6 %62), ama mevcut anomalilerin büyük kısmını kaçırır. İki yapısal neden: **(1)** 5. persentil eşiği, anomalilerin nadir (~%5) olduğu varsayımına dayanır; SKAB/BATADAL gibi anomalinin yoğun olduğu (%35 / %10) veri setlerinde recall'ı tavandan sınırlar. **(2)** PC1 (tek boyut, varyansın yalnızca ~%35–45'i) + SAX ayrıklaştırması, mevcut sinyalin önemli kısmını atar. Eşiği veri setinin anomali oranına göre kalibre etmek (örn. persentil=35) recall'ı artırabilir ancak precision'ı düşürürdü — bu, projenin "tek en iyi model değil, model davranışı analizi" amacına uygun bir trade-off tartışmasıdır. **BATADAL'da F1 tam 0'dır** çünkü oradaki sorun ayrıca şiddetli sınıf dengesizliği + kronolojik dağılım kaymasıdır (bkz. Tablo 1C).
+
+---
+
+### BATADAL — Reconstruction-Based Anomaly Detection (LSTM Autoencoder)
+
+Tablo 1C'de gösterildiği gibi, **supervised** sınıflandırıcılar (LSTM/GRU/1D-CNN) BATADAL test setindeki saldırıları tespit edemiyor — sınıf dengesizliği ele alınsa bile (kök neden dağılım kayması). Bu, modelleme paradigmasının kendisinden kaynaklanan bir sınırdır: supervised bir sınıflandırıcı, **eğitimde gördüğü** anomali örüntülerini öğrenir; BATADAL'da test saldırısı eğitimdekilerden farklı olduğu için genelleyemez.
+
+**Çözüm — reconstruction-tabanlı yaklaşım:** Bir **LSTM autoencoder** yalnızca *normal* pencerelerle eğitilir ve bir pencereyi yeniden yapılandırırken yaptığı hata (reconstruction MSE) yüksekse onu anomali sayar. Bu yaklaşım, spesifik saldırıyı "görmüş olmayı" gerektirmez — yalnızca normalden sapmayı ölçer, bu yüzden dağılım kaymasına dayanıklıdır.
+
+| Yaklaşım (BATADAL, çok değişkenli, 5 seed) | F1 | Precision | Recall | Accuracy |
+|---|---|---|---|---|
+| Supervised (LSTM/GRU/1D-CNN) | 0.0000 | 0.000 | 0.000 | ~0.903 |
+| Supervised + class weighting (`pos_weight=23.6`) + eşik ayarı | ~0.01 | ~0.01 | ~0.01 | ~0.80 |
+| **LSTM Autoencoder (reconstruction)** | **0.5745 ± 0.0985** | **0.409** | **0.998** | **0.850** |
+
+> **Yorum:** LSTM autoencoder, BATADAL test anomalilerinin **%99.8'ini** yakalıyor (recall≈1.0); precision 0.41 (bazı yanlış pozitifler, çünkü eşik recall'ı korumak için düşük tutuluyor), F1=0.57. Bu, sıfırdan büyük ve rekabetçi bir sonuçtur ve şu temel mesajı verir: **BATADAL gibi dağılım kaymalı, etiketli anomalinin az olduğu veri setlerinde reconstruction-tabanlı (semi-supervised) yöntemler, supervised sınıflandırmadan yapısal olarak üstündür.** Bu sonuç projenin "tek en iyi model değil, model davranışı analizi" amacını doğrudan destekler.
+>
+> **Metodoloji:** Autoencoder yalnızca eğitim setinin normal pencereleriyle (etiket=0) eğitilir; eşik, validation setinde F1'i maksimize eden reconstruction-hata persentili olarak seçilir (test sızıntısı yok). Sabit eğitim parametreleri (epoch≤50, batch=32, patience=5, 5 seed) korunur. Üretim: `python batadal_autoencoder_experiment.py` → `results/batadal_autoencoder.csv`. Karşılaştırma için class-weighting deneyi: `python batadal_imbalance_experiment.py` → `results/batadal_imbalance.csv`.
 
 ---
 
@@ -1027,7 +1044,7 @@ Aşağıdaki tablo, projenin resmi proje tanımındaki (isterler) her gereksinim
 > **Bilinçli tasarım kararları ve dürüst sınırlamalar:**
 > 1. **PCA yorumu (Bölüm IV):** Spec, çok değişkenli veride PC1'i Automata'nın 1B kısıtı gerekçesiyle ister. DL için PC1 darboğazının ML açısından bilgi kaybettirdiği gösterilmiş (§4.4) ve **her iki sonuç da** raporlanmıştır — ana DL sonuçları multivariate, spec-literal uyum PC1-DL karşılaştırmasıyla.
 > 2. **Automata düşük F1'i** bir hata değil, 5. persentil eşiğinin yüksek-anomali-oranlı veriyle yapısal etkileşimidir (§8, "Automata Neden Düşük F1").
-> 3. **BATADAL F1=0** kök nedeni sınıf dengesizliği + kronolojik dağılım kayması; PCA değil (Tablo 1C).
+> 3. **BATADAL:** Supervised sınıflandırıcılar (class weighting ile bile) F1≈0 — kök neden kronolojik dağılım kayması, PCA değil. **Reconstruction-tabanlı LSTM autoencoder ile F1≈0.57 (recall≈1.0)** elde edildi (§8 "BATADAL Reconstruction-Based AD"); paradigma seçiminin veri setine bağlılığını gösteren güçlü bir analitik bulgu.
 > 4. **Tekrarlanabilirlik:** DL koşu-arası birebir; Automata koşu-içi seed-deterministik, koşu-arası ≤0.06 F1 tie-break varyansı (sebebi ve tek-satır çözümü §8'de belgeli).
 
 ---
