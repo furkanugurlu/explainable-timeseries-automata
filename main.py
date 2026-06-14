@@ -196,7 +196,12 @@ def main():
 
     try:
         skab_loader = SKABDataLoader()
-        for fold_idx, (X_tr, X_te, y_tr, y_te) in enumerate(skab_loader.get_folds(n_splits=5), 1):
+        # Two parallel views of the same GroupKFold split (deterministic, so indices align):
+        #  - PCA/PC1 (1D)         -> Automata (SAX/PAA requires a 1D signal, spec IV)
+        #  - Multivariate scaled  -> DL models (LSTM/GRU/CNN1D natively support multi-feature input)
+        folds_pca = list(skab_loader.get_folds(n_splits=5, apply_pca=True))
+        folds_multi = list(skab_loader.get_folds(n_splits=5, apply_pca=False))
+        for fold_idx, ((X_tr, X_te, y_tr, y_te), (X_tr_dl, X_te_dl, _, _)) in enumerate(zip(folds_pca, folds_multi), 1):
             split = int(len(X_tr) * 0.8)
             data_sources.append({
                 "name":    f"SKAB_Fold{fold_idx}",
@@ -207,6 +212,10 @@ def main():
                 "tr":      (X_tr[:split], y_tr[:split]),
                 "val":     (X_tr[split:], y_tr[split:]),
                 "te":      (X_te, y_te),
+                # Multivariate views for DL models (same row indices as above)
+                "tr_dl":   (X_tr_dl[:split], y_tr[:split]),
+                "val_dl":  (X_tr_dl[split:], y_tr[split:]),
+                "te_dl":   (X_te_dl, y_te),
             })
         logging.info(f"SKAB: {sum(1 for d in data_sources if 'SKAB' in d['name'])} folds loaded.")
     except Exception as e:
@@ -214,12 +223,16 @@ def main():
 
     try:
         batadal_loader = BATADALDataLoader()
-        X_tr, X_val, X_te, y_tr, y_val, y_te = batadal_loader.get_processed_splits()
+        X_tr, X_val, X_te, y_tr, y_val, y_te = batadal_loader.get_processed_splits(apply_pca=True)
+        X_tr_dl, X_val_dl, X_te_dl, _, _, _ = batadal_loader.get_processed_splits(apply_pca=False)
         data_sources.append({
             "name": "BATADAL_CHRON",
             "tr":  (X_tr, y_tr),
             "val": (X_val, y_val),
             "te":  (X_te, y_te),
+            "tr_dl":  (X_tr_dl, y_tr),
+            "val_dl": (X_val_dl, y_val),
+            "te_dl":  (X_te_dl, y_te),
         })
         logging.info("BATADAL: chronological split loaded.")
     except Exception as e:
@@ -234,6 +247,9 @@ def main():
             "tr":  (dummy_x[:300], dummy_y[:300]),
             "val": (dummy_x[300:400], dummy_y[300:400]),
             "te":  (dummy_x[400:], dummy_y[400:]),
+            "tr_dl":  (dummy_x[:300], dummy_y[:300]),
+            "val_dl": (dummy_x[300:400], dummy_y[300:400]),
+            "te_dl":  (dummy_x[400:], dummy_y[400:]),
         })
 
     # --- STEP 2: Multi-Seed Experiments across Scenarios ---
@@ -243,6 +259,7 @@ def main():
     _dw = cfg['automata']['defaults']['window_size']
     _da = cfg['automata']['defaults']['alphabet_size']
     _viz_data: Dict[str, Any] = {}
+    _viz_dl: Dict[str, Any] = {}  # representative DL run (first model, Original, first seed)
 
     for ds in data_sources:
         ds_name = ds["name"]
@@ -251,6 +268,12 @@ def main():
         X_tr_full, y_tr_full = ds.get("tr_full", ds["tr"])
         X_val, y_val         = ds["val"]
         X_te_orig, y_te_orig = ds["te"]
+
+        # Multivariate views for DL models (spec V.A — no PCA requirement for DL,
+        # only the automata model needs the PC1 bottleneck per spec IV)
+        X_tr_dl, _      = ds.get("tr_dl", ds["tr"])
+        X_val_dl, _     = ds.get("val_dl", ds["val"])
+        X_te_dl_orig, _ = ds.get("te_dl", ds["te"])
 
         for seed in seeds:
             set_seed(seed)
@@ -262,8 +285,14 @@ def main():
                 # Unseen: same data — automata tracks unseen patterns via Levenshtein mapping
                 "Unseen":         (X_te_orig, y_te_orig),
             }
+            scenarios_dl = {
+                "Original":       (X_te_dl_orig, y_te_orig),
+                "Gaussian_Noise": (add_gaussian_noise(X_te_dl_orig, scale=noise_scale), y_te_orig),
+                "Unseen":         (X_te_dl_orig, y_te_orig),
+            }
 
             for scenario_name, (X_test, y_test) in scenarios.items():
+                X_test_dl, _ = scenarios_dl[scenario_name]
                 logging.info(f">>> {ds_name} | {scenario_name} | seed={seed}")
 
                 # --- Deep Learning Models (config-driven via Registry + Strategy pattern) ---
@@ -271,8 +300,19 @@ def main():
                     m_class = get_model_class(m_name)
                     try:
                         dl_detector = DLAnomalyDetector(m_class, config=cfg)
-                        dl_detector.fit(X_tr, y_tr, X_val, y_val)
-                        dl_metrics = dl_detector.get_metrics(X_test, y_test)
+                        dl_detector.fit(X_tr_dl, y_tr, X_val_dl, y_val)
+
+                        # Capture first DL run on Original scenario for Step 6 figures
+                        capture_dl = (not _viz_dl and scenario_name == "Original")
+                        dl_metrics = dl_detector.get_metrics(
+                            X_test_dl, y_test, return_outputs=capture_dl
+                        )
+                        if capture_dl:
+                            _viz_dl["y_true"]  = dl_metrics.pop("y_true")
+                            _viz_dl["y_prob"]  = dl_metrics.pop("y_prob")
+                            _viz_dl["model"]   = m_name
+                            _viz_dl["ds_name"] = ds_name
+
                         dl_metrics.update({
                             "dataset": ds_name, "scenario": scenario_name,
                             "model": m_name, "seed": seed,
@@ -411,15 +451,25 @@ def main():
             plot_hyperparameter_heatmap,
             plot_transition_heatmap,
             draw_automata_graph,
+            plot_model_comparison,
+            plot_scenario_impact,
         )
 
         # Parametre duyarlılık heatmap: window_size vs alphabet_size (Tablo 4 görseli)
+        # Tablo 4 = SKAB, Original senaryo — diğer senaryolar/datasetler karıştırılmaz
+        # (Gaussian_Noise otomata F1'ini şişirir, BATADAL F1=0 ortalamayı düşürür)
         if 'window' in df_results.columns:
             auto_viz_df = df_results[
                 df_results['model'].str.startswith('Automata')
+                & (df_results['scenario'] == 'Original')
+                & df_results['dataset'].str.startswith('SKAB')
             ].copy()
             if not auto_viz_df.empty:
                 plot_hyperparameter_heatmap(auto_viz_df, metric='f1')
+
+        # Aggregate comparison charts (Tablo 1A / Tablo 2 visual companions)
+        plot_model_comparison(df_results, metric='f1')
+        plot_scenario_impact(df_results, metric='f1')
 
         # Pipeline-based figures: confusion matrix, ROC/PR, state diagrams
         if _viz_data:
@@ -437,14 +487,43 @@ def main():
 
             plot_transition_heatmap(viz_p.model.probabilities)
             draw_automata_graph(viz_p.model.probabilities)
-
-            logging.info("All visualizations saved to results/figures/")
         else:
             logging.warning("No representative pipeline captured — state diagram figures skipped.")
 
+        # DL representative figures: confusion matrix + ROC/PR (multivariate input)
+        if _viz_dl:
+            dl_y_true = _viz_dl["y_true"]
+            dl_y_prob = _viz_dl["y_prob"]
+            dl_suffix = f"{_viz_dl['model']}_{_viz_dl['ds_name']}"
+
+            plot_confusion_matrix(dl_y_true, (dl_y_prob > 0.5).astype(int), dl_suffix)
+            plot_roc_pr_curves(dl_y_true, dl_y_prob, dl_suffix)
+        else:
+            logging.warning("No representative DL run captured — DL figures skipped.")
+
+        logging.info("All visualizations saved to results/figures/")
+
     # --- STEP 4: Cross-Dataset Generalizability (Tablo 3, 15 pts) ---
     logging.info("[4] Cross-Dataset Generalizability Experiment...")
-    cross_df = run_cross_dataset_experiment(cfg, seeds)
+
+    # Reuse Step 1's already-loaded PC1 data instead of reloading from disk and
+    # refitting GroupKFold/PCA a second time (deterministic split -> identical results).
+    skab_data = None
+    skab_folds = [d for d in data_sources if d["name"].startswith("SKAB_Fold")]
+    if skab_folds:
+        skab_data = (
+            np.vstack([d["tr_full"][0] for d in skab_folds]),
+            np.concatenate([d["tr_full"][1] for d in skab_folds]),
+            np.vstack([d["te"][0] for d in skab_folds]),
+            np.concatenate([d["te"][1] for d in skab_folds]),
+        )
+
+    batadal_data = None
+    batadal_ds = next((d for d in data_sources if d["name"] == "BATADAL_CHRON"), None)
+    if batadal_ds:
+        batadal_data = (*batadal_ds["tr"], *batadal_ds["te"])
+
+    cross_df = run_cross_dataset_experiment(cfg, seeds, skab_data=skab_data, batadal_data=batadal_data)
     if not cross_df.empty:
         cross_path = Path("results/cross_dataset.csv")
         cross_df.to_csv(cross_path, index=False)

@@ -350,13 +350,13 @@
     "state": "aaabba",
     "pattern": "aabbaa",
     "status": "unseen",
-    "mapped_to": "babbaa",
+    "mapped_to": "aaabaa",
     "transitions": [
       "aaaaaa -> aaaaaa : 0.9879",
       "aaaaaa -> aaaaab : 0.0110",
       "aaaaab -> aaaabb : 0.5455",
       "aaaabb -> aaabba : 0.0000",
-      "aaabba -> babbaa : 0.0000"
+      "aaabba -> aaabaa : 0.0000"
     ],
     "path_probability": 5.940896697464809e-13,
     "probability": 5.940896697464809e-13,
@@ -376,18 +376,18 @@
     "state": "aabbaa",
     "pattern": "abbaaa",
     "status": "unseen",
-    "mapped_to": "abbaab",
+    "mapped_to": "abbbaa",
     "transitions": [
       "aaaaaa -> aaaaab : 0.0110",
       "aaaaab -> aaaabb : 0.5455",
       "aaaabb -> aaabba : 0.0000",
-      "aaabba -> babbaa : 0.0000",
-      "babbaa -> abbaab : 0.5000"
+      "aaabba -> aaabaa : 0.0000",
+      "aaabaa -> abbbaa : 0.0000"
     ],
-    "path_probability": 3.0069159065851456e-13,
-    "probability": 3.0069159065851456e-13,
+    "path_probability": 6.013831813170292e-18,
+    "probability": 6.013831813170292e-18,
     "decision": "anomaly",
-    "confidence_score": 0.2113
+    "confidence_score": 0.1113
   },
   {
     "time_step": 628,
@@ -406,14 +406,14 @@
     "transitions": [
       "aaaaab -> aaaabb : 0.5455",
       "aaaabb -> aaabba : 0.0000",
-      "aaabba -> babbaa : 0.0000",
-      "babbaa -> abbaab : 0.5000",
-      "abbaab -> bbaaaa : 0.0000"
+      "aaabba -> aaabaa : 0.0000",
+      "aaabaa -> abbbaa : 0.0000",
+      "abbbaa -> bbaaaa : 0.0000"
     ],
-    "path_probability": 2.7272727272727274e-16,
-    "probability": 2.7272727272727274e-16,
+    "path_probability": 5.454545454545456e-21,
+    "probability": 5.454545454545456e-21,
     "decision": "anomaly",
-    "confidence_score": 0.2091
+    "confidence_score": 0.1091
   },
   {
     "time_step": 629,
@@ -431,15 +431,15 @@
     "mapped_to": null,
     "transitions": [
       "aaaabb -> aaabba : 0.0000",
-      "aaabba -> babbaa : 0.0000",
-      "babbaa -> abbaab : 0.5000",
-      "abbaab -> bbaaaa : 0.0000",
+      "aaabba -> aaabaa : 0.0000",
+      "aaabaa -> abbbaa : 0.0000",
+      "abbbaa -> bbaaaa : 0.0000",
       "bbaaaa -> baaaaa : 1.0000"
     ],
-    "path_probability": 5.000000000000001e-16,
-    "probability": 5.000000000000001e-16,
+    "path_probability": 1.0000000000000004e-20,
+    "probability": 1.0000000000000004e-20,
     "decision": "anomaly",
-    "confidence_score": 0.3
+    "confidence_score": 0.2
   },
   {
     "time_step": 630,
@@ -456,16 +456,16 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "aaabba -> babbaa : 0.0000",
-      "babbaa -> abbaab : 0.5000",
-      "abbaab -> bbaaaa : 0.0000",
+      "aaabba -> aaabaa : 0.0000",
+      "aaabaa -> abbbaa : 0.0000",
+      "abbbaa -> bbaaaa : 0.0000",
       "bbaaaa -> baaaaa : 1.0000",
       "baaaaa -> aaaaaa : 0.9231"
     ],
-    "path_probability": 4.6153846153846166e-11,
-    "probability": 4.6153846153846166e-11,
+    "path_probability": 9.230769230769233e-16,
+    "probability": 9.230769230769233e-16,
     "decision": "anomaly",
-    "confidence_score": 0.4846
+    "confidence_score": 0.3846
   },
   {
     "time_step": 631,
@@ -482,16 +482,16 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "babbaa -> abbaab : 0.5000",
-      "abbaab -> bbaaaa : 0.0000",
+      "aaabaa -> abbbaa : 0.0000",
+      "abbbaa -> bbaaaa : 0.0000",
       "bbaaaa -> baaaaa : 1.0000",
       "baaaaa -> aaaaaa : 0.9231",
       "aaaaaa -> aaaaaa : 0.9879"
     ],
-    "path_probability": 4.559409719277415e-06,
-    "probability": 4.559409719277415e-06,
+    "path_probability": 9.118819438554832e-11,
+    "probability": 9.118819438554832e-11,
     "decision": "anomaly",
-    "confidence_score": 0.6822
+    "confidence_score": 0.5822
   },
   {
     "time_step": 632,
@@ -508,7 +508,7 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "abbaab -> bbaaaa : 0.0000",
+      "abbbaa -> bbaaaa : 0.0000",
       "bbaaaa -> baaaaa : 1.0000",
       "baaaaa -> aaaaaa : 0.9231",
       "aaaaaa -> aaaaaa : 0.9879",

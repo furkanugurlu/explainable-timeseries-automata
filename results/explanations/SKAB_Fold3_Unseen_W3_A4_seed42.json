@@ -649,15 +649,15 @@
     "state": "bbb",
     "pattern": "bbd",
     "status": "unseen",
-    "mapped_to": "bbc",
+    "mapped_to": "bba",
     "transitions": [
       "bbb -> bbb : 0.9572",
-      "bbb -> bbc : 0.0071"
+      "bbb -> bba : 0.0143"
     ],
-    "path_probability": 0.00682122082362433,
-    "probability": 0.00682122082362433,
+    "path_probability": 0.01364244164724866,
+    "probability": 0.01364244164724866,
     "decision": "anomaly",
-    "confidence_score": 0.4822
+    "confidence_score": 0.4857
   },
   {
     "time_step": 377,
@@ -671,13 +671,13 @@
     "status": "unseen",
     "mapped_to": "cdd",
     "transitions": [
-      "bbb -> bbc : 0.0071",
-      "bbc -> cdd : 0.0000"
+      "bbb -> bba : 0.0143",
+      "bba -> cdd : 0.0000"
     ],
-    "path_probability": 7.125890736342044e-08,
-    "probability": 7.125890736342044e-08,
+    "path_probability": 1.4251781472684087e-07,
+    "probability": 1.4251781472684087e-07,
     "decision": "anomaly",
-    "confidence_score": 0.0036
+    "confidence_score": 0.0071
   },
   {
     "time_step": 378,
@@ -691,7 +691,7 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "bbc -> cdd : 0.0000",
+      "bba -> cdd : 0.0000",
       "cdd -> ddd : 0.4000"
     ],
     "path_probability": 4.000000000000001e-06,
@@ -729,10 +729,10 @@
     "state": "ddc",
     "pattern": "dcb",
     "status": "unseen",
-    "mapped_to": "ddb",
+    "mapped_to": "dbb",
     "transitions": [
       "ddd -> ddc : 0.0139",
-      "ddc -> ddb : 0.0000"
+      "ddc -> dbb : 0.0000"
     ],
     "path_probability": 1.394700139470014e-07,
     "probability": 1.394700139470014e-07,
@@ -751,8 +751,8 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "ddc -> ddb : 0.0000",
-      "ddb -> cbb : 0.0000"
+      "ddc -> dbb : 0.0000",
+      "dbb -> cbb : 0.0000"
     ],
     "path_probability": 1.0000000000000002e-10,
     "probability": 1.0000000000000002e-10,
@@ -771,7 +771,7 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "ddb -> cbb : 0.0000",
+      "dbb -> cbb : 0.0000",
       "cbb -> bbc : 0.2963"
     ],
     "path_probability": 2.962962962962963e-06,

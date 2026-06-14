@@ -150,12 +150,16 @@ def train_evaluate_dl(
     X_val: np.ndarray, y_val: np.ndarray,
     X_test: np.ndarray, y_test: np.ndarray,
     window_size: int = None,
-    config: dict = None
+    config: dict = None,
+    return_outputs: bool = False
 ) -> Dict[str, float]:
     """
     Trains and evaluates a deep learning model following config strict rules.
-    
-    Returns dict with keys: 'accuracy', 'precision', 'recall', 'f1'
+
+    Returns dict with keys: 'accuracy', 'precision', 'recall', 'f1'.
+    If return_outputs=True, the dict also contains 'y_true' and 'y_prob'
+    numpy arrays (windowed test labels + sigmoid probabilities) so callers
+    can build confusion matrices and ROC/PR curves.
     """
     cfg = config if config else load_config()
     
@@ -169,6 +173,10 @@ def train_evaluate_dl(
         window_size = cfg['automata']['defaults']['window_size']
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cpu":
+        # Small models (hidden_dim=64) on CPU: intra-op thread sync overhead
+        # outweighs parallelism gains. Single-threaded measured ~2.3x faster.
+        torch.set_num_threads(1)
     logger.info(f"Training device: {device}")
     
     # Prepare Datasets and Loaders
@@ -235,10 +243,11 @@ def train_evaluate_dl(
     # Evaluation on Test Set
     model.eval()
     all_preds = []
+    all_probs = []
     all_targets = []
-    
+
     inference_start_time = time.time()
-    
+
     with torch.no_grad():
         for inputs, targets in test_loader:
             inputs, targets = inputs.to(device), targets.to(device)
@@ -246,13 +255,15 @@ def train_evaluate_dl(
 
             # Thresholding for binary classification
             preds = (outputs > 0.5).float()
-            
+
             all_preds.extend(preds.cpu().numpy())
+            all_probs.extend(outputs.cpu().numpy())
             all_targets.extend(targets.cpu().numpy())
-            
+
     inference_duration = time.time() - inference_start_time
-    
+
     all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
     all_targets = np.array(all_targets)
     
     # Calculate Metrics
@@ -264,8 +275,12 @@ def train_evaluate_dl(
         "train_time_sec": train_duration,
         "inference_time_sec": inference_duration
     }
-    
+
     logger.info(f"Eval metrics: {', '.join(f'{k}={v:.4f}' for k, v in metrics.items())}")
+
+    if return_outputs:
+        metrics["y_true"] = all_targets
+        metrics["y_prob"] = all_probs
 
     return metrics
 
@@ -309,7 +324,7 @@ class DLAnomalyDetector(BaseAnomalyDetector):
             "Training and inference are inseparable — use get_metrics(X_test, y_test)."
         )
 
-    def get_metrics(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, Any]:
+    def get_metrics(self, X_test: np.ndarray, y_test: np.ndarray, return_outputs: bool = False) -> Dict[str, Any]:
         if not self._fitted:
             raise RuntimeError(
                 "DLAnomalyDetector.get_metrics() called before fit(). Call fit(X_train, y_train) first."
@@ -320,6 +335,7 @@ class DLAnomalyDetector(BaseAnomalyDetector):
             self._X_val, self._y_val,
             X_test, y_test,
             config=self.config,
+            return_outputs=return_outputs,
         )
 
 

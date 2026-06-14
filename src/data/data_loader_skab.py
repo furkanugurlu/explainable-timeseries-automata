@@ -94,40 +94,54 @@ class SKABDataLoader:
         
         return X, y, groups, feature_cols
 
-    def get_folds(self, n_splits: int = 5) -> Generator[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None]:
+    def get_folds(self, n_splits: int = 5, apply_pca: bool = True) -> Generator[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None]:
         """
         Yields preprocessed Train/Test splits using GroupKFold.
         Strict enforcement of fit(Train) -> transform(Test) prevents leakage.
+
+        Args:
+            n_splits: Number of GroupKFold splits.
+            apply_pca: If True (default), reduces features to 1D via PCA (PC1) —
+                required for the automata model (SAX/PAA need a 1D signal).
+                If False, returns MinMax-scaled multivariate features for DL
+                models (LSTM/GRU/CNN1D), which natively support multi-feature input.
+                GroupKFold is deterministic, so fold indices are identical
+                regardless of this flag, keeping automata and DL views aligned.
         """
         df = self.load_all_data()
         X, y, groups, _ = self.prepare_xy_and_groups(df)
-        
+
         gkf = GroupKFold(n_splits=n_splits)
-        
+
         # Extract source files to pass to GroupKFold indices
         # GroupKFold uses index mapping based on group unique values
-        
+
         for fold_idx, (train_index, test_index) in enumerate(gkf.split(X, y, groups=groups)):
             # Split
             X_train, X_test = X.iloc[train_index].values, X.iloc[test_index].values
             y_train, y_test = y.iloc[train_index].values, y.iloc[test_index].values
-            
+
             # 1. Normalization: MinMaxScaler
             scaler = MinMaxScaler()
             # Fit ONLY on train
             X_train_scaled = scaler.fit_transform(X_train)
             # Transform test
             X_test_scaled = scaler.transform(X_test)
-            
+
+            if not apply_pca:
+                logger.info(f"Fold {fold_idx + 1} processed (multivariate). Train: {X_train_scaled.shape}, Test: {X_test_scaled.shape}")
+                yield X_train_scaled, X_test_scaled, y_train, y_test
+                continue
+
             # 2. Dimensionality Reduction: PCA (1 component / PC1)
             pca = PCA(n_components=1)
             # Fit ONLY on train scaled
             X_train_pca = pca.fit_transform(X_train_scaled)
             # Transform test scaled
             X_test_pca = pca.transform(X_test_scaled)
-            
+
             logger.info(f"Fold {fold_idx + 1} processed. Train: {X_train_pca.shape}, Test: {X_test_pca.shape}")
-            
+
             yield X_train_pca, X_test_pca, y_train, y_test
 
 if __name__ == "__main__":

@@ -168,18 +168,18 @@
     "state": "cccccb",
     "pattern": "ccccba",
     "status": "unseen",
-    "mapped_to": "ccccbc",
+    "mapped_to": "ccccbb",
     "transitions": [
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccb : 0.0089",
-      "cccccb -> ccccbc : 0.0833"
+      "cccccb -> ccccbb : 0.4167"
     ],
-    "path_probability": 0.0007167615225867631,
-    "probability": 0.0007167615225867631,
+    "path_probability": 0.0035838076129338157,
+    "probability": 0.0035838076129338157,
     "decision": "anomaly",
-    "confidence_score": 0.6113
+    "confidence_score": 0.678
   },
   {
     "time_step": 556,
@@ -194,18 +194,18 @@
     "state": "ccccba",
     "pattern": "cccbaa",
     "status": "unseen",
-    "mapped_to": "cccbcb",
+    "mapped_to": "cccbbb",
     "transitions": [
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccb : 0.0089",
-      "cccccb -> ccccbc : 0.0833",
-      "ccccbc -> cccbcb : 0.5000"
+      "cccccb -> ccccbb : 0.4167",
+      "ccccbb -> cccbbb : 0.4167"
     ],
-    "path_probability": 0.0003626921087976629,
-    "probability": 0.0003626921087976629,
+    "path_probability": 0.0015112171199902621,
+    "probability": 0.0015112171199902621,
     "decision": "anomaly",
-    "confidence_score": 0.5137
+    "confidence_score": 0.5637
   },
   {
     "time_step": 557,
@@ -220,18 +220,18 @@
     "state": "cccbaa",
     "pattern": "ccbaab",
     "status": "unseen",
-    "mapped_to": "ccbbbb",
+    "mapped_to": "ccbcbb",
     "transitions": [
       "cccccc -> cccccc : 0.9881",
       "cccccc -> cccccb : 0.0089",
-      "cccccb -> ccccbc : 0.0833",
-      "ccccbc -> cccbcb : 0.5000",
-      "cccbcb -> ccbbbb : 0.0000"
+      "cccccb -> ccccbb : 0.4167",
+      "ccccbb -> cccbbb : 0.4167",
+      "cccbbb -> ccbcbb : 0.0000"
     ],
-    "path_probability": 3.670553221365821e-09,
-    "probability": 3.670553221365821e-09,
+    "path_probability": 1.5293971755690924e-08,
+    "probability": 1.5293971755690924e-08,
     "decision": "anomaly",
-    "confidence_score": 0.3161
+    "confidence_score": 0.3661
   },
   {
     "time_step": 558,
@@ -246,18 +246,18 @@
     "state": "ccbaab",
     "pattern": "cbaabb",
     "status": "unseen",
-    "mapped_to": "abaaba",
+    "mapped_to": "bbabbb",
     "transitions": [
       "cccccc -> cccccb : 0.0089",
-      "cccccb -> ccccbc : 0.0833",
-      "ccccbc -> cccbcb : 0.5000",
-      "cccbcb -> ccbbbb : 0.0000",
-      "ccbbbb -> abaaba : 0.0000"
+      "cccccb -> ccccbb : 0.4167",
+      "ccccbb -> cccbbb : 0.4167",
+      "cccbbb -> ccbcbb : 0.0000",
+      "ccbcbb -> bbabbb : 0.0000"
     ],
-    "path_probability": 3.7147102526002975e-14,
-    "probability": 3.7147102526002975e-14,
+    "path_probability": 1.5477959385834576e-13,
+    "probability": 1.5477959385834576e-13,
     "decision": "anomaly",
-    "confidence_score": 0.1185
+    "confidence_score": 0.1685
   },
   {
     "time_step": 559,
@@ -272,18 +272,18 @@
     "state": "cbaabb",
     "pattern": "baabbb",
     "status": "unseen",
-    "mapped_to": "babbbb",
+    "mapped_to": "bbabbb",
     "transitions": [
-      "cccccb -> ccccbc : 0.0833",
-      "ccccbc -> cccbcb : 0.5000",
-      "cccbcb -> ccbbbb : 0.0000",
-      "ccbbbb -> abaaba : 0.0000",
-      "abaaba -> babbbb : 0.0000"
+      "cccccb -> ccccbb : 0.4167",
+      "ccccbb -> cccbbb : 0.4167",
+      "cccbbb -> ccbcbb : 0.0000",
+      "ccbcbb -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000"
     ],
-    "path_probability": 4.166666666666667e-17,
-    "probability": 4.166666666666667e-17,
+    "path_probability": 1.7361111111111117e-16,
+    "probability": 1.7361111111111117e-16,
     "decision": "anomaly",
-    "confidence_score": 0.1167
+    "confidence_score": 0.1667
   },
   {
     "time_step": 560,
@@ -300,16 +300,16 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "ccccbc -> cccbcb : 0.5000",
-      "cccbcb -> ccbbbb : 0.0000",
-      "ccbbbb -> abaaba : 0.0000",
-      "abaaba -> babbbb : 0.0000",
-      "babbbb -> aabbbb : 0.0000"
+      "ccccbb -> cccbbb : 0.4167",
+      "cccbbb -> ccbcbb : 0.0000",
+      "ccbcbb -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aabbbb : 0.0000"
     ],
-    "path_probability": 5.000000000000002e-21,
-    "probability": 5.000000000000002e-21,
+    "path_probability": 4.166666666666668e-21,
+    "probability": 4.166666666666668e-21,
     "decision": "anomaly",
-    "confidence_score": 0.1
+    "confidence_score": 0.0833
   },
   {
     "time_step": 561,
@@ -326,10 +326,10 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "cccbcb -> ccbbbb : 0.0000",
-      "ccbbbb -> abaaba : 0.0000",
-      "abaaba -> babbbb : 0.0000",
-      "babbbb -> aabbbb : 0.0000",
+      "cccbbb -> ccbcbb : 0.0000",
+      "ccbcbb -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aabbbb : 0.0000",
       "aabbbb -> abbbbb : 1.0000"
     ],
     "path_probability": 1.0000000000000004e-20,
@@ -352,9 +352,9 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "ccbbbb -> abaaba : 0.0000",
-      "abaaba -> babbbb : 0.0000",
-      "babbbb -> aabbbb : 0.0000",
+      "ccbcbb -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aabbbb : 0.0000",
       "aabbbb -> abbbbb : 1.0000",
       "abbbbb -> bbbbbb : 1.0000"
     ],
@@ -378,8 +378,8 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "abaaba -> babbbb : 0.0000",
-      "babbbb -> aabbbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aabbbb : 0.0000",
       "aabbbb -> abbbbb : 1.0000",
       "abbbbb -> bbbbbb : 1.0000",
       "bbbbbb -> bbbbbb : 0.9746"
@@ -404,7 +404,7 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "babbbb -> aabbbb : 0.0000",
+      "bbabbb -> aabbbb : 0.0000",
       "aabbbb -> abbbbb : 1.0000",
       "abbbbb -> bbbbbb : 1.0000",
       "bbbbbb -> bbbbbb : 0.9746",
@@ -428,18 +428,18 @@
     "state": "bbbbaa",
     "pattern": "bbbaab",
     "status": "unseen",
-    "mapped_to": "bbbaaa",
+    "mapped_to": "bbaaab",
     "transitions": [
       "bbbbbb -> bbbbbb : 0.9746",
       "bbbbbb -> bbbbbb : 0.9746",
       "bbbbbb -> bbbbba : 0.0143",
       "bbbbba -> bbbbaa : 0.7778",
-      "bbbbaa -> bbbaaa : 0.5000"
+      "bbbbaa -> bbaaab : 0.0000"
     ],
-    "path_probability": 0.005269024259795106,
-    "probability": 0.005269024259795106,
+    "path_probability": 1.0538048519590213e-07,
+    "probability": 1.0538048519590213e-07,
     "decision": "anomaly",
-    "confidence_score": 0.6483
+    "confidence_score": 0.5483
   },
   {
     "time_step": 578,
@@ -454,18 +454,18 @@
     "state": "bbbaab",
     "pattern": "bbaabb",
     "status": "unseen",
-    "mapped_to": "bbaaab",
+    "mapped_to": "bbabbb",
     "transitions": [
       "bbbbbb -> bbbbbb : 0.9746",
       "bbbbbb -> bbbbba : 0.0143",
       "bbbbba -> bbbbaa : 0.7778",
-      "bbbbaa -> bbbaaa : 0.5000",
-      "bbbaaa -> bbaaab : 0.0714"
+      "bbbbaa -> bbaaab : 0.0000",
+      "bbaaab -> bbabbb : 0.0000"
     ],
-    "path_probability": 0.0003861503261243568,
-    "probability": 0.0003861503261243568,
+    "path_probability": 1.081220913148199e-12,
+    "probability": 1.081220913148199e-12,
     "decision": "anomaly",
-    "confidence_score": 0.4676
+    "confidence_score": 0.3533
   },
   {
     "time_step": 579,
@@ -480,18 +480,18 @@
     "state": "bbaabb",
     "pattern": "baabbb",
     "status": "unseen",
-    "mapped_to": "babbbb",
+    "mapped_to": "bbabbb",
     "transitions": [
       "bbbbbb -> bbbbba : 0.0143",
       "bbbbba -> bbbbaa : 0.7778",
-      "bbbbaa -> bbbaaa : 0.5000",
-      "bbbaaa -> bbaaab : 0.0714",
-      "bbaaab -> babbbb : 0.0000"
+      "bbbbaa -> bbaaab : 0.0000",
+      "bbaaab -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000"
     ],
-    "path_probability": 3.961965134706815e-09,
-    "probability": 3.961965134706815e-09,
+    "path_probability": 1.1093502377179082e-17,
+    "probability": 1.1093502377179082e-17,
     "decision": "anomaly",
-    "confidence_score": 0.2727
+    "confidence_score": 0.1584
   },
   {
     "time_step": 580,
@@ -506,18 +506,18 @@
     "state": "baabbb",
     "pattern": "aabbba",
     "status": "unseen",
-    "mapped_to": "aababa",
+    "mapped_to": "aaabba",
     "transitions": [
       "bbbbba -> bbbbaa : 0.7778",
-      "bbbbaa -> bbbaaa : 0.5000",
-      "bbbaaa -> bbaaab : 0.0714",
-      "bbaaab -> babbbb : 0.0000",
-      "babbbb -> aababa : 0.0000"
+      "bbbbaa -> bbaaab : 0.0000",
+      "bbaaab -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aaabba : 0.0000"
     ],
-    "path_probability": 2.7777777777777777e-12,
-    "probability": 2.7777777777777777e-12,
+    "path_probability": 7.77777777777778e-21,
+    "probability": 7.77777777777778e-21,
     "decision": "anomaly",
-    "confidence_score": 0.2698
+    "confidence_score": 0.1556
   },
   {
     "time_step": 581,
@@ -532,18 +532,18 @@
     "state": "aabbba",
     "pattern": "abbbab",
     "status": "unseen",
-    "mapped_to": "aabbab",
+    "mapped_to": "abbbbb",
     "transitions": [
-      "bbbbaa -> bbbaaa : 0.5000",
-      "bbbaaa -> bbaaab : 0.0714",
-      "bbaaab -> babbbb : 0.0000",
-      "babbbb -> aababa : 0.0000",
-      "aababa -> aabbab : 0.0000"
+      "bbbbaa -> bbaaab : 0.0000",
+      "bbaaab -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aaabba : 0.0000",
+      "aaabba -> abbbbb : 0.0000"
     ],
-    "path_probability": 3.571428571428572e-17,
-    "probability": 3.571428571428572e-17,
+    "path_probability": 1.0000000000000005e-25,
+    "probability": 1.0000000000000005e-25,
     "decision": "anomaly",
-    "confidence_score": 0.1143
+    "confidence_score": 0.0
   },
   {
     "time_step": 582,
@@ -560,16 +560,16 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "bbbaaa -> bbaaab : 0.0714",
-      "bbaaab -> babbbb : 0.0000",
-      "babbbb -> aababa : 0.0000",
-      "aababa -> aabbab : 0.0000",
-      "aabbab -> bbbabb : 0.0000"
+      "bbaaab -> bbabbb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aaabba : 0.0000",
+      "aaabba -> abbbbb : 0.0000",
+      "abbbbb -> bbbabb : 0.0000"
     ],
-    "path_probability": 7.142857142857145e-22,
-    "probability": 7.142857142857145e-22,
+    "path_probability": 1.0000000000000005e-25,
+    "probability": 1.0000000000000005e-25,
     "decision": "anomaly",
-    "confidence_score": 0.0143
+    "confidence_score": 0.0
   },
   {
     "time_step": 583,
@@ -586,10 +586,10 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "bbaaab -> babbbb : 0.0000",
-      "babbbb -> aababa : 0.0000",
-      "aababa -> aabbab : 0.0000",
-      "aabbab -> bbbabb : 0.0000",
+      "bbabbb -> bbabbb : 0.0000",
+      "bbabbb -> aaabba : 0.0000",
+      "aaabba -> abbbbb : 0.0000",
+      "abbbbb -> bbbabb : 0.0000",
       "bbbabb -> bbabbb : 0.5000"
     ],
     "path_probability": 5.000000000000002e-21,
@@ -612,9 +612,9 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "babbbb -> aababa : 0.0000",
-      "aababa -> aabbab : 0.0000",
-      "aabbab -> bbbabb : 0.0000",
+      "bbabbb -> aaabba : 0.0000",
+      "aaabba -> abbbbb : 0.0000",
+      "abbbbb -> bbbabb : 0.0000",
       "bbbabb -> bbabbb : 0.5000",
       "bbabbb -> babbbb : 1.0000"
     ],
@@ -638,8 +638,8 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "aababa -> aabbab : 0.0000",
-      "aabbab -> bbbabb : 0.0000",
+      "aaabba -> abbbbb : 0.0000",
+      "abbbbb -> bbbabb : 0.0000",
       "bbbabb -> bbabbb : 0.5000",
       "bbabbb -> babbbb : 1.0000",
       "babbbb -> abbbbb : 1.0000"
@@ -664,7 +664,7 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "aabbab -> bbbabb : 0.0000",
+      "abbbbb -> bbbabb : 0.0000",
       "bbbabb -> bbabbb : 0.5000",
       "bbabbb -> babbbb : 1.0000",
       "babbbb -> abbbbb : 1.0000",

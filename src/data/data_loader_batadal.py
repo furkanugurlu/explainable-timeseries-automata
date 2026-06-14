@@ -81,11 +81,18 @@ class BATADALDataLoader:
             
         return df
 
-    def get_processed_splits(self, train_ratio: float = 0.6, val_ratio: float = 0.2) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def get_processed_splits(self, train_ratio: float = 0.6, val_ratio: float = 0.2, apply_pca: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Splits data chronologically (60-20-20 default) and applies preprocessing.
         Prevents data leakage by fitting transformation only on Train data.
-        
+
+        Args:
+            train_ratio: Fraction of rows for training (chronological).
+            val_ratio: Fraction of rows for validation (chronological).
+            apply_pca: If True (default), reduces features to 1D via PCA (PC1) —
+                required for the automata model. If False, returns MinMax-scaled
+                multivariate features for DL models (LSTM/GRU/CNN1D).
+
         Returns:
             Tuple containing (X_train, X_val, X_test, y_train, y_val, y_test)
         """
@@ -139,6 +146,10 @@ class BATADALDataLoader:
         X_val_scaled = scaler.transform(X_val)
         X_test_scaled = scaler.transform(X_test)
         
+        if not apply_pca:
+            logger.info(f"Final shape (multivariate, no PCA) -> Train: {X_train_scaled.shape}")
+            return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test
+
         # 2. PCA Dimensionality Reduction (1 component)
         pca = PCA(n_components=1)
         # Fit only on Train Scaled
@@ -146,9 +157,9 @@ class BATADALDataLoader:
         # Apply to Val and Test
         X_val_final = pca.transform(X_val_scaled)
         X_test_final = pca.transform(X_test_scaled)
-        
+
         logger.info(f"Final shape after PCA reduction -> Train: {X_train_final.shape}")
-        
+
         return X_train_final, X_val_final, X_test_final, y_train, y_val, y_test
 
 if __name__ == "__main__":

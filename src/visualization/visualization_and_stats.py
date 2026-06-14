@@ -119,6 +119,95 @@ def plot_hyperparameter_heatmap(results_df: pd.DataFrame, metric="f1"):
     plt.close()
     logger.info(f"Saved hyperparameter heatmap to {filename}")
 
+def plot_model_comparison(results_df: pd.DataFrame, metric: str = "f1"):
+    """
+    Grouped bar chart: per-fold metric for each DL model + best Automata config
+    (Original scenario, SKAB folds). Visual companion to Tablo 1A.
+    """
+    orig = results_df[results_df['scenario'] == 'Original']
+    folds = sorted(d for d in orig['dataset'].unique() if d.startswith('SKAB_Fold'))
+    if not folds:
+        logger.warning("plot_model_comparison skipped: no SKAB folds in results.")
+        return
+
+    dl_models = [m for m in ['LSTM', 'GRU', 'CNN1D'] if m in orig['model'].unique()]
+    bars: Dict[str, List[float]] = {m: [] for m in dl_models}
+    bars['Automata (best)'] = []
+
+    for fold in folds:
+        fold_df = orig[orig['dataset'] == fold]
+        for m in dl_models:
+            bars[m].append(fold_df[fold_df['model'] == m][metric].mean())
+        auto = fold_df[fold_df['model'].str.startswith('Automata')]
+        best = auto.groupby('model')[metric].mean().max() if not auto.empty else 0.0
+        bars['Automata (best)'].append(best)
+
+    x = np.arange(len(folds))
+    n_groups = len(bars)
+    width = 0.8 / n_groups
+
+    plt.figure(figsize=(10, 6))
+    for i, (label, values) in enumerate(bars.items()):
+        plt.bar(x + (i - (n_groups - 1) / 2) * width, values, width, label=label)
+
+    plt.xticks(x, [f.replace('SKAB_', '') for f in folds])
+    plt.ylabel(metric.upper())
+    plt.title(f"Model Comparison per Fold — SKAB, Original Scenario (mean {metric.upper()} over seeds)")
+    plt.legend()
+    plt.grid(axis='y', alpha=0.3)
+    plt.tight_layout()
+
+    filename = SAVE_DIR / f"model_comparison_{metric}.png"
+    plt.savefig(filename)
+    plt.close()
+    logger.info(f"Saved model comparison chart to {filename}")
+
+def plot_scenario_impact(results_df: pd.DataFrame, metric: str = "f1"):
+    """
+    Grouped bar chart: SKAB-average metric per scenario for each DL model and a
+    representative Automata config. Visual companion to Tablo 2 (noise effect).
+    """
+    skab = results_df[results_df['dataset'].str.startswith('SKAB_Fold')]
+    if skab.empty:
+        logger.warning("plot_scenario_impact skipped: no SKAB folds in results.")
+        return
+
+    scenarios = ['Original', 'Gaussian_Noise', 'Unseen']
+    scenarios = [s for s in scenarios if s in skab['scenario'].unique()]
+
+    models = [m for m in ['LSTM', 'GRU', 'CNN1D'] if m in skab['model'].unique()]
+    # Representative automata: highest Original-scenario metric
+    auto = skab[skab['model'].str.startswith('Automata')]
+    if not auto.empty:
+        best_auto = (
+            auto[auto['scenario'] == 'Original']
+            .groupby('model')[metric].mean().idxmax()
+        )
+        models.append(best_auto)
+
+    x = np.arange(len(models))
+    width = 0.8 / len(scenarios)
+
+    plt.figure(figsize=(10, 6))
+    for i, sc in enumerate(scenarios):
+        values = [
+            skab[(skab['model'] == m) & (skab['scenario'] == sc)][metric].mean()
+            for m in models
+        ]
+        plt.bar(x + (i - (len(scenarios) - 1) / 2) * width, values, width, label=sc)
+
+    plt.xticks(x, models)
+    plt.ylabel(metric.upper())
+    plt.title(f"Scenario Impact — SKAB fold average (mean {metric.upper()} over seeds)")
+    plt.legend()
+    plt.grid(axis='y', alpha=0.3)
+    plt.tight_layout()
+
+    filename = SAVE_DIR / "scenario_impact.png"
+    plt.savefig(filename)
+    plt.close()
+    logger.info(f"Saved scenario impact chart to {filename}")
+
 def plot_transition_heatmap(model_probabilities: Dict[str, Dict[str, float]]):
     """
     Converts nested dict to a visual grid of state transition probabilities.

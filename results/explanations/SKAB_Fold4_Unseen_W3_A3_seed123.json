@@ -349,15 +349,15 @@
     "state": "ccc",
     "pattern": "cca",
     "status": "unseen",
-    "mapped_to": "ccc",
+    "mapped_to": "ccb",
     "transitions": [
       "ccc -> ccc : 0.9964",
-      "ccc -> ccc : 0.4982"
+      "ccc -> ccb : 0.0018"
     ],
-    "path_probability": 0.49643676370510004,
-    "probability": 0.49643676370510004,
+    "path_probability": 0.0017784326233038384,
+    "probability": 0.0017784326233038384,
     "decision": "anomaly",
-    "confidence_score": 0.7473
+    "confidence_score": 0.4991
   },
   {
     "time_step": 1143,
@@ -369,15 +369,15 @@
     "state": "cca",
     "pattern": "caa",
     "status": "unseen",
-    "mapped_to": "baa",
+    "mapped_to": "aaa",
     "transitions": [
-      "ccc -> ccc : 0.4982",
-      "ccc -> baa : 0.0000"
+      "ccc -> ccb : 0.0018",
+      "ccb -> aaa : 0.0000"
     ],
-    "path_probability": 4.98215196328404e-06,
-    "probability": 4.98215196328404e-06,
+    "path_probability": 1.7848036715961246e-08,
+    "probability": 1.7848036715961246e-08,
     "decision": "anomaly",
-    "confidence_score": 0.2491
+    "confidence_score": 0.0009
   },
   {
     "time_step": 1144,
@@ -391,13 +391,13 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "ccc -> baa : 0.0000",
-      "baa -> aaa : 0.3947"
+      "ccb -> aaa : 0.0000",
+      "aaa -> aaa : 0.4964"
     ],
-    "path_probability": 3.947368421052632e-06,
-    "probability": 3.947368421052632e-06,
+    "path_probability": 4.964120963608406e-06,
+    "probability": 4.964120963608406e-06,
     "decision": "anomaly",
-    "confidence_score": 0.1974
+    "confidence_score": 0.2482
   },
   {
     "time_step": 1145,
@@ -411,12 +411,12 @@
     "status": "known",
     "mapped_to": null,
     "transitions": [
-      "baa -> aaa : 0.3947",
+      "aaa -> aaa : 0.4964",
       "aaa -> aaa : 0.9928"
     ],
-    "path_probability": 0.3919042866006636,
-    "probability": 0.3919042866006636,
+    "path_probability": 0.492849938826729,
+    "probability": 0.492849938826729,
     "decision": "anomaly",
-    "confidence_score": 0.6938
+    "confidence_score": 0.7446
   }
 ]
